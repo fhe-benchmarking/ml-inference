@@ -5,7 +5,6 @@
 ```console
 git clone https://github.com/andreea-alexandru/fhe-bench
 cd fhe-bench
-git checkout empty-harness
 ```
 
 ## Dependencies
@@ -17,18 +16,37 @@ source ./virtualenv/bin/activate
 pip3 install -r requirements.txt
 ```
 
-In this empty harness, no other dependency is needed.
+In this template, the library for the encrypted computations is OpenFHE v1.3.1. 
+If other libraries are required, the developer should include the relevant instructions for installing.
 
-## Running the empty workload
+This template assumes the correct version of OpenFHE is installed locally at `/third-party/openfhe`. 
+
+### Installing OpenFHE
+
+The installation steps for OpenFHE are described [here](https://openfhe-development.readthedocs.io/en/latest/sphinx_rsts/intro/installation/installation.html).  
+
+If OpenFHE
+is installed at a different location, that location should be specified using the `-CMAKE_PREFIX_PATH` variable in `build_task.sh`.
+(In the case of a system-wide installation at `/usr/local/`, unset the `-CMAKE_PREFIX_PATH` variable.)
+
+For users who want to do a local fresh install, they should run `get_openfhe.sh`, which 
+is designed to install the specified version of OpenFHE at the `third-party` subdirectory in the current directory.
+By default, `build_task.sh` looks for the library at this location. See more instructions in `submission/CMakeLists.txt` if 
+`build_task.sh` does not succeed.
+
+```console
+./scripts/get_openfhe.sh
+```
+
+## Running the "add two numbers" workload
 
 An example run is provided below.
 
 ```console
 $ python3 harness/run_submission.py -h
-usage: run_submission.py [-h] [--num_runs NUM_RUNS] [--seed SEED] [--clrtxt CLRTXT]
-                         {0,1,2,3}
+usage: run_submission.py [-h] [--num_runs NUM_RUNS] [--seed SEED] [--clrtxt CLRTXT] {0,1,2,3}
 
-Run the [workload] FHE benchmark.
+Run the add-two-values FHE benchmark.
 
 positional arguments:
   {0,1,2,3}            Instance size (0-toy/1-small/2-medium/3-large)
@@ -42,37 +60,57 @@ options:
 $ python3 ./harness/run_submission.py 2 --seed 3 --num_runs 2
 
 [harness] Running submission for medium dataset
-18:57:39 [harness] 1: Dataset generation completed (elapsed: 0.0366s)
-18:57:39 [harness] 2: Dataset preprocessing completed (elapsed: 0.0113s)
-18:57:39 [harness] 3: Key Generation completed (elapsed: 0.0116s)
-18:57:39 [harness] 4: Dataset encoding and encryption completed (elapsed: 0.0103s)
-         [harness] Public and evaluation keys size: 0.0B
-         [harness] Encrypted database size: 0.0B
-18:57:39 [harness] 5: (Encrypted) dataset preprocessing completed (elapsed: 0.0095s)
+-- The CXX compiler identification is GNU 13.1.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- FOUND PACKAGE OpenFHE
+-- OpenFHE Version: 1.3.1
+-- OpenFHE installed as shared libraries: ON
+-- OpenFHE include files location: /home/aandr/fhe-bench/third_party/openfhe/include/openfhe
+-- OpenFHE lib files location: /home/aandr/fhe-bench/third_party/openfhe/lib
+-- OpenFHE Native Backend size: 64
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/aandr/fhe-bench/submission/build
+[  5%] Building CXX object CMakeFiles/client_postprocess.dir/src/client_postprocess.cpp.o
+[...]
+[100%] Built target client_decrypt_decode
+15:58:45 [harness] 1: Dataset generation completed (elapsed: 0.4333s)
+15:58:45 [harness] 2: Dataset preprocessing completed (elapsed: 0.1514s)
+15:58:45 [harness] 3: Key Generation completed (elapsed: 0.2111s)
+15:58:45 [harness] 4: Dataset encoding and encryption completed (elapsed: 0.1522s)
+         [harness] Public and evaluation keys size: 517.8K
+         [harness] Encrypted database size: 261.2K
+15:58:46 [harness] 5: (Encrypted) dataset preprocessing completed (elapsed: 0.3696s)
 
          [harness] Run 1 of 2
-18:57:39 [harness] 6: Query generation completed (elapsed: 0.0094s)
-18:57:39 [harness] 7: Query preprocessing completed (elapsed: 0.0091s)
-18:57:39 [harness] 8: Query encryption completed (elapsed: 0.0088s)
-         [harness] Encrypted query size: 0.0B
-18:57:39 [harness] 9: Encrypted computation completed (elapsed: 0.0095s)
-         [harness] Encrypted results size: 0.0B
-18:57:39 [harness] 10: Result decryption completed (elapsed: 0.0094s)
-18:57:39 [harness] 11: Result postprocessing completed (elapsed: 0.0196s)
-[harness] PASS  (expected=0.0, got=0.0)
-[total latency] 0.1451s
+15:58:46 [harness] 6: Query generation completed (elapsed: 0.3635s)
+15:58:46 [harness] 7: Query preprocessing completed (elapsed: 0.017s)
+15:58:46 [harness] 8: Query encryption completed (elapsed: 0.0955s)
+         [harness] Encrypted query size: 257.2K
+15:58:46 [harness] 9: Encrypted computation completed (elapsed: 0.0979s)
+         [harness] Encrypted results size: 261.2K
+15:58:47 [harness] 10: Result decryption completed (elapsed: 0.2023s)
+15:58:47 [harness] 11: Result postprocessing completed (elapsed: 0.1582s)
+         [harness] Wrote expected result to:  /home/aandr/fhe-bench/datasets/medium/expected.txt
+[harness] PASS  (expected=13.89, got=13.889999999042985)
+[total latency] 2.252s
 
          [harness] Run 2 of 2
-18:57:40 [harness] 6: Query generation completed (elapsed: 0.0531s)
-18:57:40 [harness] 7: Query preprocessing completed (elapsed: 0.0094s)
-18:57:40 [harness] 8: Query encryption completed (elapsed: 0.0094s)
-         [harness] Encrypted query size: 0.0B
-18:57:40 [harness] 9: Encrypted computation completed (elapsed: 0.0099s)
-         [harness] Encrypted results size: 0.0B
-18:57:40 [harness] 10: Result decryption completed (elapsed: 0.0091s)
-18:57:40 [harness] 11: Result postprocessing completed (elapsed: 0.0195s)
-[harness] PASS  (expected=0.0, got=0.0)
-[total latency] 0.1898s
+15:58:47 [harness] 6: Query generation completed (elapsed: 0.7585s)
+15:58:48 [harness] 7: Query preprocessing completed (elapsed: 0.071s)
+15:58:48 [harness] 8: Query encryption completed (elapsed: 0.0339s)
+         [harness] Encrypted query size: 257.2K
+15:58:48 [harness] 9: Encrypted computation completed (elapsed: 0.121s)
+         [harness] Encrypted results size: 261.2K
+15:58:48 [harness] 10: Result decryption completed (elapsed: 0.1141s)
+15:58:48 [harness] 11: Result postprocessing completed (elapsed: 0.1326s)
+         [harness] Wrote expected result to:  /home/aandr/fhe-bench/datasets/medium/expected.txt
+[harness] PASS  (expected=123.58, got=123.58000000003665)
+[total latency] 2.5488s
 
 All steps completed for the medium dataset!
 ```
@@ -92,7 +130,7 @@ Each submission to the workload in the FHE benchmarking should have the followin
 | |  ├─ small/
 | |  ├─ medium/
 | |  ├─ large/
-| ├─docs/           # Optional documentation (beyond the top-level README.md)
+| ├─docs/           # Documentation (beyond the top-level README.md)
 | ├─harness/        # Scripts to generate data, run workload, check results
 | ├─build/          # Handle installing dependencies and building the project
 | ├─submission/     # The implementation, this is what the submitters modify
@@ -105,11 +143,11 @@ Each submission to the workload in the FHE benchmarking should have the followin
 | |     ├─ intermediate/            # internal information to be passed around the functions
 | |     └─ secret_key/              # holds the secret key
 | |  ├─ small/
-| |     ...
+| |     …
 | |  ├─ medium/
-| |     ...
+| |     …
 | |  ├─ large/
-| |     ...
+| |     …
 | ├─measurements/   # Holds json files with the results for each run
 | |  ├─ toy/        # each instance-size in in a separate subdirectory
 | |  ├─ small/
@@ -121,8 +159,8 @@ Each submission to the workload in the FHE benchmarking should have the followin
 
 A submitter can edit any of the `client_*` / `server_*` sources in `/submission`. 
 Moreover, for the particular parameters related to a workload, the submitter can modify the params files.
-If the current description of the files are inaccurate, the stage names and argument in `run_submission`
-can be also modified.
+If the current description of the files are inaccurate, the stage names in `run_submission` can be also 
+modified.
 
 The current stages are the following, targeted to a client-server scenario.
 The order in which they are happening in `run_submission` assumes an initialization step which is 

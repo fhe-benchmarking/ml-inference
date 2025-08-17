@@ -36,9 +36,24 @@ class InstanceParams:
         if size > LARGE:
             raise ValueError("Invalid instance size")
 
+        # parameters for sizes:   toy  small   medium     large
+        q_bound =              [ 1,   10,     100,      1000]
+        db_bound =             [10, 100,    1000,   10000]
+
+        self.query_bound = q_bound[size]
+        self.db_bound = db_bound[size]
+
     def get_size(self):
         """Return the instance size."""
         return self.size
+
+    def get_query_bound(self):
+        """Return the dimension of the plaintext record."""
+        return self.query_bound
+
+    def get_db_bound(self):
+        """Return the number of records in the dataset."""
+        return self.db_bound
 
     # Directory structure methods
     def subdir(self):
