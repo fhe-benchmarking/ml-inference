@@ -3,8 +3,8 @@
 ## Cloning the workload
 
 ```console
-git clone https://github.com/andreea-alexandru/fhe-bench
-cd fhe-bench
+git clone https://github.com/fhe-benchmarking/sample-workload
+cd sample-workload
 ```
 
 ## Dependencies
@@ -26,7 +26,7 @@ This template assumes the correct version of OpenFHE is installed locally at `/t
 The installation steps for OpenFHE are described [here](https://openfhe-development.readthedocs.io/en/latest/sphinx_rsts/intro/installation/installation.html).  
 
 If OpenFHE
-is installed at a different location, that location should be specified using the `-CMAKE_PREFIX_PATH` variable in `build_task.sh`.
+is installed at a different location, that location should be specified using the `-CMAKE_PREFIX_PATH` variable in [`build_task.sh`](https://github.com/fhe-benchmarking/sample-workload/blob/baa3654cdc4a78ce331f49bda1ff48465a9c575d/scripts/build_task.sh#L24).
 (In the case of a system-wide installation at `/usr/local/`, unset the `-CMAKE_PREFIX_PATH` variable.)
 
 For users who want to do a local fresh install, they should run `get_openfhe.sh`, which 
