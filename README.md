@@ -1,118 +1,211 @@
-# FHE Benchmarking template
+# FHE Benchmarking Suite - ML Inference
+This repository contains the harness for the ML-inference workload of the FHE benchmarking suite of [HomomorphicEncrypption.org].
+The harness currently supports mnist model benchmarking as specified in `harness/mnist` directory.
+The `main` branch contains a reference implementation of this workload, under the `submission` subdirectory.
 
-## Cloning the workload
+Submitters need to clone this repository, replace the content of the `submission` subdirectory by their own implementation.
+They also may need to changes or replace the script `scripts/build_task.sh` to account for dependencies and build environment for their submission.
+Submitters are expected to document any changes made to the model architecture `harness/mnist/mnist.py` in the `submission/README.md` file. 
 
+## Running the ML-inference workload
+The build environment depends on OpenFHE being installed as specificied in `scripts/get_openfhe.sh` and `submission/CMakeLists.txt`
+See https://github.com/openfheorg/openfhe-development#installation.
+
+To run the workload, clone and install dependencies:
 ```console
-git clone https://github.com/fhe-benchmarking/sample-workload
-cd sample-workload
+git clone https://github.com/fhe-benchmarking/ml-inference.git
+cd FHE-Benchmarks-ML-Inference
+
+python -m venv bmenv
+source ./bmenv/bin/activate
+pip install -r requirements.txt
+
+python3 harness/run_submission.py -h  # Information about command-line options
 ```
 
-## Dependencies
+The harness script `harness/run_submission.py` will attempt to build the submission itself, if it is not already built. If already built, it will use the same project without re-building it (unless the code has changed). An example run is provided below.
 
-The harness requires python and some corresponding packages specified in `requirements.txt`. 
-```console
-python3 -m venv virtualenv
-source ./virtualenv/bin/activate
-pip3 install -r requirements.txt
-```
-
-In this template, the library for the encrypted computations is OpenFHE v1.3.1. 
-If other libraries are required, the developer should include the relevant instructions for installing.
-
-This template assumes the correct version of OpenFHE is installed locally at `/third-party/openfhe`. 
-
-### Installing OpenFHE
-
-The installation steps for OpenFHE are described [here](https://openfhe-development.readthedocs.io/en/latest/sphinx_rsts/intro/installation/installation.html).  
-
-If OpenFHE
-is installed at a different location, that location should be specified using the `-CMAKE_PREFIX_PATH` variable in [`build_task.sh`](https://github.com/fhe-benchmarking/sample-workload/blob/baa3654cdc4a78ce331f49bda1ff48465a9c575d/scripts/build_task.sh#L24).
-(In the case of a system-wide installation at `/usr/local/`, unset the `-CMAKE_PREFIX_PATH` variable.)
-
-For users who want to do a local fresh install, they should run `get_openfhe.sh`, which 
-is designed to install the specified version of OpenFHE at the `third-party` subdirectory in the current directory.
-By default, `build_task.sh` looks for the library at this location. See more instructions in `submission/CMakeLists.txt` if 
-`build_task.sh` does not succeed.
-
-```console
-./scripts/get_openfhe.sh
-```
-
-## Running the "add two numbers" workload
-
-An example run is provided below.
 
 ```console
 $ python3 harness/run_submission.py -h
 usage: run_submission.py [-h] [--num_runs NUM_RUNS] [--seed SEED] [--clrtxt CLRTXT] {0,1,2,3}
 
-Run the add-two-values FHE benchmark.
+Run ML Inference FHE benchmark.
 
 positional arguments:
-  {0,1,2,3}            Instance size (0-toy/1-small/2-medium/3-large)
+  {0,1,2,3}            Instance size (0-single/1-small/2-medium/3-large)
 
 options:
   -h, --help           show this help message and exit
   --num_runs NUM_RUNS  Number of times to run steps 4-9 (default: 1)
   --seed SEED          Random seed for dataset and query generation
   --clrtxt CLRTXT      Specify with 1 if to rerun the cleartext computation
+```
 
-$ python3 ./harness/run_submission.py 2 --seed 3 --num_runs 2
+The single instance runs the inference for a single input and verifies the correctness of the obtained label compared to the ground-truth label.
 
-[harness] Running submission for medium dataset
--- The CXX compiler identification is GNU 13.1.0
--- Detecting CXX compiler ABI info
--- Detecting CXX compiler ABI info - done
--- Check for working CXX compiler: /usr/bin/c++ - skipped
--- Detecting CXX compile features
--- Detecting CXX compile features - done
+```console
+$ python3 ./harness/run_submission.py 0 --seed 3 --num_runs 2
+ 
+
+[harness] Running submission for single inference
+[get-openfhe] Found OpenFHE at .../ml-inference/third_party/openfhe (use --force to rebuild).
 -- FOUND PACKAGE OpenFHE
 -- OpenFHE Version: 1.3.1
 -- OpenFHE installed as shared libraries: ON
--- OpenFHE include files location: /home/aandr/fhe-bench/third_party/openfhe/include/openfhe
--- OpenFHE lib files location: /home/aandr/fhe-bench/third_party/openfhe/lib
+-- OpenFHE include files location: .../ml-inference/third_party/openfhe/include/openfhe
+-- OpenFHE lib files location: .../ml-inference/third_party/openfhe/lib
 -- OpenFHE Native Backend size: 64
--- Configuring done
--- Generating done
--- Build files have been written to: /home/aandr/fhe-bench/submission/build
-[  5%] Building CXX object CMakeFiles/client_postprocess.dir/src/client_postprocess.cpp.o
-[...]
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: .../ml-inference/submission/build
+[ 12%] Built target client_preprocess_input
+[ 25%] Built target client_postprocess
+[ 37%] Built target server_preprocess_model
+[ 62%] Built target client_key_generation
+[ 62%] Built target mlp_encryption_utils
+[ 75%] Built target client_encode_encrypt_input
 [100%] Built target client_decrypt_decode
-15:58:45 [harness] 1: Dataset generation completed (elapsed: 0.4333s)
-15:58:45 [harness] 2: Dataset preprocessing completed (elapsed: 0.1514s)
-15:58:45 [harness] 3: Key Generation completed (elapsed: 0.2111s)
-15:58:45 [harness] 4: Dataset encoding and encryption completed (elapsed: 0.1522s)
-         [harness] Public and evaluation keys size: 517.8K
-         [harness] Encrypted database size: 261.2K
-15:58:46 [harness] 5: (Encrypted) dataset preprocessing completed (elapsed: 0.3696s)
+[100%] Built target server_encrypted_compute
+22:50:49 [harness] 1: Harness: MNIST Test dataset generation completed (elapsed: 7.5552s)
+22:50:51 [harness] 2: Client: Key Generation completed (elapsed: 2.2688s)
+         [harness] Client: Public and evaluation keys size: 1.4G
+22:50:51 [harness] 3: Server: (Encrypted) model preprocessing completed (elapsed: 0.1603s)
 
          [harness] Run 1 of 2
-15:58:46 [harness] 6: Query generation completed (elapsed: 0.3635s)
-15:58:46 [harness] 7: Query preprocessing completed (elapsed: 0.017s)
-15:58:46 [harness] 8: Query encryption completed (elapsed: 0.0955s)
-         [harness] Encrypted query size: 257.2K
-15:58:46 [harness] 9: Encrypted computation completed (elapsed: 0.0979s)
-         [harness] Encrypted results size: 261.2K
-15:58:47 [harness] 10: Result decryption completed (elapsed: 0.2023s)
-15:58:47 [harness] 11: Result postprocessing completed (elapsed: 0.1582s)
-         [harness] Wrote expected result to:  /home/aandr/fhe-bench/datasets/medium/expected.txt
-[harness] PASS  (expected=13.89, got=13.889999999042985)
-[total latency] 2.252s
+100.0%
+100.0%
+100.0%
+100.0%
+22:51:04 [harness] 4: Harness: Input generation for MNIST completed (elapsed: 13.1305s)
+22:51:04 [harness] 5: Client: Input preprocessing completed (elapsed: 0.0489s)
+22:51:04 [harness] 6: Client: Input encryption completed (elapsed: 0.0481s)
+         [harness] Client: Encrypted input size: 358.8K
+         [server] Loading keys
+         [server] Run encrypted MNIST inference
+         [server] Execution time for ciphertext 0 : 11 seconds
+22:51:18 [harness] 7: Server: Encrypted ML Inference computation completed (elapsed: 13.3027s)
+         [harness] Client: Encrypted results size: 69.6K
+22:51:18 [harness] 8: Client: Result decryption completed (elapsed: 0.1729s)
+22:51:18 [harness] 9: Client: Result postprocessing completed (elapsed: 0.0921s)
+[harness] PASS  (expected=7, got=7)
+[total latency] 36.7796s
 
          [harness] Run 2 of 2
-15:58:47 [harness] 6: Query generation completed (elapsed: 0.7585s)
-15:58:48 [harness] 7: Query preprocessing completed (elapsed: 0.071s)
-15:58:48 [harness] 8: Query encryption completed (elapsed: 0.0339s)
-         [harness] Encrypted query size: 257.2K
-15:58:48 [harness] 9: Encrypted computation completed (elapsed: 0.121s)
-         [harness] Encrypted results size: 261.2K
-15:58:48 [harness] 10: Result decryption completed (elapsed: 0.1141s)
-15:58:48 [harness] 11: Result postprocessing completed (elapsed: 0.1326s)
-         [harness] Wrote expected result to:  /home/aandr/fhe-bench/datasets/medium/expected.txt
-[harness] PASS  (expected=123.58, got=123.58000000003665)
-[total latency] 2.5488s
+22:51:23 [harness] 4: Harness: Input generation for MNIST completed (elapsed: 5.2028s)
+22:51:23 [harness] 5: Client: Input preprocessing completed (elapsed: 0.0986s)
+22:51:23 [harness] 6: Client: Input encryption completed (elapsed: 0.0998s)
+         [harness] Client: Encrypted input size: 358.8K
+         [server] Loading keys
+         [server] Run encrypted MNIST inference
+         [server] Execution time for ciphertext 0 : 12 seconds
+22:51:37 [harness] 7: Server: Encrypted ML Inference computation completed (elapsed: 13.8138s)
+         [harness] Client: Encrypted results size: 69.6K
+22:51:37 [harness] 8: Client: Result decryption completed (elapsed: 0.1219s)
+22:51:37 [harness] 9: Client: Result postprocessing completed (elapsed: 0.0827s)
+[harness] PASS  (expected=7, got=7)
+[total latency] 29.4041s
 
-All steps completed for the medium dataset!
+All steps completed for the single inference!
+```
+
+The batch inference cases run the inference for a batch of inputs of varying sizes. The accuracy (with respect to the ground truth labels) is compared between the decrypted results and the results obtained using the harness model.
+
+```console
+$python3 ./harness/run_submission.py 1 --seed 3 --num_runs 2
+
+[harness] Running submission for small inference
+[harness] Running submission for single inference
+[get-openfhe] Found OpenFHE at .../ml-inference/third_party/openfhe (use --force to rebuild).
+-- FOUND PACKAGE OpenFHE
+-- OpenFHE Version: 1.3.1
+-- OpenFHE installed as shared libraries: ON
+-- OpenFHE include files location: .../ml-inference/third_party/openfhe/include/openfhe
+-- OpenFHE lib files location: .../ml-inference/third_party/openfhe/lib
+-- OpenFHE Native Backend size: 64
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: .../ml-inference/submission/build
+[ 12%] Built target client_preprocess_input
+[ 25%] Built target client_postprocess
+[ 37%] Built target server_preprocess_model
+[ 62%] Built target client_key_generation
+[ 62%] Built target mlp_encryption_utils
+[ 75%] Built target client_encode_encrypt_input
+[100%] Built target client_decrypt_decode
+[100%] Built target server_encrypted_compute
+22:44:03 [harness] 1: Harness: MNIST Test dataset generation completed (elapsed: 7.5536s)
+22:44:05 [harness] 2: Client: Key Generation completed (elapsed: 2.1305s)
+         [harness] Client: Public and evaluation keys size: 1.4G
+22:44:05 [harness] 3: Server: (Encrypted) model preprocessing completed (elapsed: 0.1265s)
+
+         [harness] Run 1 of 2
+22:44:08 [harness] 4: Harness: Input generation for MNIST completed (elapsed: 3.2961s)
+22:44:08 [harness] 5: Client: Input preprocessing completed (elapsed: 0.0879s)
+22:44:09 [harness] 6: Client: Input encryption completed (elapsed: 0.1254s)
+         [harness] Client: Encrypted input size: 5.2M
+         [server] Loading keys
+         [server] Run encrypted MNIST inference
+         [server] Execution time for ciphertext 0 : 9 seconds
+         [server] Execution time for ciphertext 1 : 7 seconds
+         [server] Execution time for ciphertext 2 : 7 seconds
+         [server] Execution time for ciphertext 3 : 8 seconds
+         [server] Execution time for ciphertext 4 : 8 seconds
+         [server] Execution time for ciphertext 5 : 8 seconds
+         [server] Execution time for ciphertext 6 : 8 seconds
+         [server] Execution time for ciphertext 7 : 8 seconds
+         [server] Execution time for ciphertext 8 : 8 seconds
+         [server] Execution time for ciphertext 9 : 8 seconds
+         [server] Execution time for ciphertext 10 : 8 seconds
+         [server] Execution time for ciphertext 11 : 8 seconds
+         [server] Execution time for ciphertext 12 : 8 seconds
+         [server] Execution time for ciphertext 13 : 8 seconds
+         [server] Execution time for ciphertext 14 : 9 seconds
+22:46:17 [harness] 7: Server: Encrypted ML Inference computation completed (elapsed: 128.6067s)
+         [harness] Client: Encrypted results size: 988.6K
+22:46:17 [harness] 8: Client: Result decryption completed (elapsed: 0.2126s)
+22:46:17 [harness] 9: Client: Result postprocessing completed (elapsed: 0.1055s)
+22:46:23 [harness] 10.1: Harness: Run inference for harness plaintext model completed (elapsed: 5.1714s)
+         [harness] Wrote harness model predictions to:  .../ml-inference/io/small/harness_model_predictions.txt
+[harness] Encrypted Model Accuracy: 0.9333 (14/15 correct)
+[harness] Harness Model Accuracy: 0.9333 (14/15 correct)
+22:46:23 [harness] 10.2: Harness: Run quality check on encrypted inference completed (elapsed: 0.0008s)
+[total latency] 147.4171s
+
+         [harness] Run 2 of 2
+22:46:26 [harness] 4: Harness: Input generation for MNIST completed (elapsed: 3.51s)
+22:46:26 [harness] 5: Client: Input preprocessing completed (elapsed: 0.1004s)
+22:46:26 [harness] 6: Client: Input encryption completed (elapsed: 0.1497s)
+         [harness] Client: Encrypted input size: 5.2M
+         [server] Loading keys
+         [server] Run encrypted MNIST inference
+         [server] Execution time for ciphertext 0 : 11 seconds
+         [server] Execution time for ciphertext 1 : 8 seconds
+         [server] Execution time for ciphertext 2 : 8 seconds
+         [server] Execution time for ciphertext 3 : 8 seconds
+         [server] Execution time for ciphertext 4 : 8 seconds
+         [server] Execution time for ciphertext 5 : 8 seconds
+         [server] Execution time for ciphertext 6 : 8 seconds
+         [server] Execution time for ciphertext 7 : 8 seconds
+         [server] Execution time for ciphertext 8 : 8 seconds
+         [server] Execution time for ciphertext 9 : 8 seconds
+         [server] Execution time for ciphertext 10 : 8 seconds
+         [server] Execution time for ciphertext 11 : 8 seconds
+         [server] Execution time for ciphertext 12 : 8 seconds
+         [server] Execution time for ciphertext 13 : 8 seconds
+         [server] Execution time for ciphertext 14 : 8 seconds
+22:48:38 [harness] 7: Server: Encrypted ML Inference computation completed (elapsed: 131.3166s)
+         [harness] Client: Encrypted results size: 988.6K
+22:48:38 [harness] 8: Client: Result decryption completed (elapsed: 0.2358s)
+22:48:38 [harness] 9: Client: Result postprocessing completed (elapsed: 0.085s)
+22:48:43 [harness] 10.1: Harness: Run inference for harness plaintext model completed (elapsed: 4.9384s)
+         [harness] Wrote harness model predictions to:  .../ml-inference/io/small/harness_model_predictions.txt
+[harness] Encrypted Model Accuracy: 0.9333 (14/15 correct)
+[harness] Harness Model Accuracy: 0.9333 (14/15 correct)
+22:48:43 [harness] 10.2: Harness: Run quality check on encrypted inference completed (elapsed: 0.0007s)
+[total latency] 150.1474s
+
+All steps completed for the small inference!
 ```
 
 After finishing the run, deactivate the virtual environment.
@@ -122,38 +215,27 @@ deactivate
 
 ## Directory structure
 
-```bash
-Each submission to the workload in the FHE benchmarking should have the following directory structure:
-[root] /
-| ├─datasets/       # Holds cleartext data 
-| |  ├─ toy/        # each instance-size in in a separate subdirectory
-| |  ├─ small/
-| |  ├─ medium/
-| |  ├─ large/
-| ├─docs/           # Documentation (beyond the top-level README.md)
-| ├─harness/        # Scripts to generate data, run workload, check results
-| ├─build/          # Handle installing dependencies and building the project
-| ├─submission/     # The implementation, this is what the submitters modify
-| |  └─ README.md   # likely also a src/, include/ subdirectories, CMakeLists.txt, etc.
-| ├─io/             # Directory to hold the I/O between client & server parts
-| |  ├─ toy/        # The reference implementation has subdirectories
-| |     ├─ public_keys/             # holds the public evaluation keys
-| |     ├─ ciphertexts_download/    # holds the ciphertexts to be downloaded by the client
-| |     ├─ ciphertexts_upload/      # holds the ciphertexts (or other data except keys) to be uploaded by the client    
-| |     ├─ intermediate/            # internal information to be passed around the functions
-| |     └─ secret_key/              # holds the secret key
-| |  ├─ small/
-| |     …
-| |  ├─ medium/
-| |     …
-| |  ├─ large/
-| |     …
-| ├─measurements/   # Holds json files with the results for each run
-| |  ├─ toy/        # each instance-size in in a separate subdirectory
-| |  ├─ small/
-| |  ├─ medium/
-| |  ├─ large/
+The directory structure of this reposiroty is as follows:
 ```
+├─ README.md     # This file
+├─ LICENSE.md    # Harness software license (Apache v2)
+├─ harness/      # Scripts to drive the workload implementation
+|   ├─ run_submission.py
+|   ├─ verify_result.py
+|   ├─ calculate_quality.py
+|   └─ [...]
+├─ datasets/     # The harness scripts create and populate this directory
+├─ docs/         # Optional: additional documentation
+├─ io/           # This directory is used for client<->server communication
+├─ measurements/ # Holds logs with performance numbers
+├─ scripts/      # Helper scripts for dependencies and build system
+└─ submission/   # This is where the workload implementation lives
+    ├─ README.md   # Submission documentation (mandatory)
+    ├─ LICENSE.md  # Optional software license (if different from Apache v2)
+    └─ [...]
+```
+Submitters must overwrite the contents of the `scripts` and `submissions`
+subdirectories.
 
 ## Description of stages
 
@@ -172,13 +254,12 @@ Each file can take as argument the test case size.
 |----------------------------------|-------------|
 | `client_key_generation`          | Generate all key material and cryptographic context at the client.           
 | `client_preprocess_dataset`      | (Optional) Any in the clear computations the client wants to apply over the dataset/model.
-| `client_preprocess_query`        | (Optional) Any in the clear computations the client wants to apply over the query/input.
-| `client_encode_encrypt_db`       | (Optional) Plaintext encoding and encryption of the dataset/model at the client.
-| `client_encode_encrypt_query`    | Plaintext encoding and encryption of the query/input at the client.
-| `server_preprocess_dataset`      | (Optional) Any in the clear or encrypted computations the server wants to apply over the dataset/model.
-| `server_encrypted_compute`       | The computation the server applies to achieve the workload solution over encrypted daa.
+| `client_preprocess_input`        | (Optional) Any in the clear computations the client wants to apply over the input.
+| `client_encode_encrypt_query`    | Plaintext encoding and encryption of the input at the client.
+| `server_preprocess_model`        | (Optional) Any in the clear or encrypted computations the server wants to apply over the model.
+| `server_encrypted_compute`       | The computation the server applies to achieve the workload solution over encrypted data.
 | `client_decrypt_decode`          | Decryption and plaintext decoding of the result at the client.
-| `client_postprocess`:            | Any in the clear computation that the client wants to apply on the decrypted result.
+| `client_postprocess`             | Any in the clear computation that the client wants to apply on the decrypted result.
 
 
 The outer python script measures the runtime of each stage.

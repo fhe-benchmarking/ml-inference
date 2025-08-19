@@ -1,33 +1,38 @@
 #!/usr/bin/env python3
-
-# Copyright (c) 2025 HomomorphicEncryption.org
-# All rights reserved.
-#
-# This software is licensed under the terms of the Apache v2 License.
-# See the LICENSE.md file for details.
-
 """
 If the datasets are too large to include, generate them here or pull them 
 from a storage source.
 """
-import numpy as np
+# Copyright 2025 Google LLC
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import sys
 from pathlib import Path
-from utils import parse_submission_arguments
+from mnist import mnist
 
 def main():
     """
-    Generate random value representing the database in the workload.
+    Usage:  python3 generate_dataset.py  <output_file>
     """
-    __, params, seed, __, __ = parse_submission_arguments('Generate dataset for FHE benchmark.')
-    DATASET_DB_PATH = params.datadir() / f"db.txt"
-    DATASET_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    bound = params.get_db_bound()
 
-    # Set random seed if provided
-    if seed is not None:
-        np.random.seed(seed)
-    db = round(np.random.uniform(-bound, bound), 2)
-    DATASET_DB_PATH.write_text(f"{db}\n", encoding="utf-8")
+    if len(sys.argv) != 2:
+        sys.exit("Usage: generate_dataset.py <output_file>")
+
+    DATASET_PATH = Path(sys.argv[1])
+    DATASET_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    mnist.export_test_data(output_file=DATASET_PATH, num_samples=10000, seed=None)
+
 
 if __name__ == "__main__":
     main()

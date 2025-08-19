@@ -4,6 +4,7 @@ io/
 third_party/
 measurements/
 harness/__pycache__/
+harness/mnist/__pycache__/
 
 # Prerequisites
 *.d
@@ -50,3 +51,7 @@ virtualenv
 datasets/*
 # But keep the folder alive with this one file, since some submissions might have fixed datasets
 !datasets/.gitkeep
+
+# Temporary files for loading MNIST data and model training
+harness/mnist/data/*
+harness/mnist/mnist_ffnn_model.pth

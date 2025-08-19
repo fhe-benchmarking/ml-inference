@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-
-# Copyright (c) 2025 HomomorphicEncryption.org
-# All rights reserved.
+"""
+verify_result.py - correctness oracle for ML Inference workload.
+"""
+# Copyright 2025 Google LLC
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This software is licensed under the terms of the Apache v2 License.
-# See the LICENSE.md file for details.
-
-"""
-verify_result.py - correctness oracle for add-two-ints
-"""
-
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import sys
 from pathlib import Path
 
@@ -28,14 +32,13 @@ def main():
     result_file   = Path(sys.argv[2])
 
     try:
-        exp = float(expected_file.read_text().strip())
-        res = float(result_file.read_text().strip())
+        exp = int(expected_file.read_text().strip())
+        res = int(result_file.read_text().strip())
     except Exception as e:
         print(f"[harness] failed to read files: {e}")
         sys.exit(1)
 
-    EPS = 1e-5                 # tolerance for doubles
-    if abs(exp - res) <= EPS:
+    if res == exp:
         print(f"[harness] PASS  (expected={exp}, got={res})")
         sys.exit(0)
     else:

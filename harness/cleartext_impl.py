@@ -1,39 +1,41 @@
 #!/usr/bin/env python3
-
-# Copyright (c) 2025 HomomorphicEncryption.org
-# All rights reserved.
-#
-# This software is licensed under the terms of the Apache v2 License.
-# See the LICENSE.md file for details.
-#============================================================================
-
 """
-Cleartext reference for the “add” workload.
+Cleartext reference for the “ML Inference” workload.
 For each test case:
-    - Reads the dataset and the query
-    - Computes the sum between the two 
-    - Writes the result to expected.txt for each test case (# datasets/xxx/expected.txt)
+    - Reads the input pixels from the dataset intermediate directory
+    - Writes the predicted labels to output_labels path.
 """
-import random
+# Copyright 2025 Google LLC
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import sys
 from pathlib import Path
 from utils import parse_submission_arguments
+from mnist import mnist
 
 def main():
+    """
+    Usage:  python3 cleartext_impl.py  <input_pixels_path>  <output_labels_path>
+    """
 
-    __, params, __, __, __ = parse_submission_arguments('Generate dataset for FHE benchmark.')
-    DATASET_DB_PATH = params.datadir() / f"db.txt"
-    DATASET_Q_PATH = params.datadir() / f"query.txt"
+    if len(sys.argv) != 3:
+        sys.exit("Usage: cleartext_impl.py <input_pixels_path> <output_labels_path>")
 
-    # 1) load database and the query if not already stored
-    db = float(DATASET_DB_PATH.read_text().strip())
-    q = float(DATASET_Q_PATH.read_text().strip())
+    INPUT_PATH = Path(sys.argv[1])
+    OUTPUT_PATH = Path(sys.argv[2])
+    model_path = "harness/mnist/mnist_ffnn_model.pth"
 
-    # 2) compute reference result
-    result = db + q
-
-    # 3) write to expected.txt (overwrites if it already exists)
-    OUT_PATH = params.datadir() / f"expected.txt"
-    OUT_PATH.write_text(f"{result}\n", encoding="utf-8")
+    mnist.run_predict(model_path=model_path, pixels_file=INPUT_PATH, predictions_file=OUTPUT_PATH)
 
 if __name__ == "__main__":
     main()
