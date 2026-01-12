@@ -42,7 +42,7 @@ int main(int argc, char* argv[]){
         throw std::runtime_error("Dataset size does not match instance size");
     }
 
-    std::shared_ptr<const CiphertextImpl<DCRTPoly>> ctxt;
+    std::vector<MutableCiphertextT> ctxt;
     fs::create_directories(prms.ctxtupdir());
     for (size_t i = 0; i < dataset.size(); ++i) {
         auto *input = dataset[i].image;

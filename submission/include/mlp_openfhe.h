@@ -18,6 +18,7 @@
 
 using namespace lbcrypto;
 using CiphertextT = ConstCiphertext<DCRTPoly>;
+using MutableCiphertextT = Ciphertext<DCRTPoly>;
 using CCParamsT = CCParams<CryptoContextCKKSRNS>;
 using CryptoContextT = CryptoContext<DCRTPoly>;
 using EvalKeyT = EvalKey<DCRTPoly>;
@@ -26,6 +27,8 @@ using PrivateKeyT = PrivateKey<DCRTPoly>;
 using PublicKeyT = PublicKey<DCRTPoly>;
 
 
-CiphertextT mlp(CryptoContextT v0, CiphertextT v1);
+std::vector<MutableCiphertextT> mnist(CryptoContextT cc, 
+    std::vector<float> v0, std::vector<float> v1, std::vector<float> v2, std::vector<float> v3, 
+    std::vector<MutableCiphertextT> v4);
 
 #endif  // ifndef MLP_OPENFHE_H_

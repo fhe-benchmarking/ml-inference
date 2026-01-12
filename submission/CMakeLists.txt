@@ -28,6 +28,18 @@ else()
     message(FATAL_ERROR "PACKAGE OpenFHE NOT FOUND")
 endif ()
 
+# --------------------------------------------------------------------
+# 2b. Find LibTorch (PyTorch C++ distribution)
+# --------------------------------------------------------------------
+find_package(Torch REQUIRED)
+if (Torch_FOUND)
+    message(STATUS "FOUND PACKAGE Torch")
+    message(STATUS "Torch include dirs: ${TORCH_INCLUDE_DIRS}")
+    message(STATUS "Torch libraries: ${TORCH_LIBRARIES}")
+else()
+    message(FATAL_ERROR "PACKAGE Torch NOT FOUND")
+endif ()
+
 set( CMAKE_CXX_FLAGS "${OpenFHE_CXX_FLAGS} -Werror")
 
 # --------------------------------------------------------------------
@@ -73,10 +85,7 @@ endif()
 # --------------------------------------------------------------------
 
 add_library( mlp_encryption_utils src/mlp_encryption_utils.cpp )
-
-# Use pre-built mlp_openfhe library
-add_library( mlp_openfhe STATIC IMPORTED )
-set_target_properties( mlp_openfhe PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/pre-built-library/libmlp_openfhe.a )
+add_library( mlp_openfhe src/mlp_openfhe.cpp )
 
 # --------------------------------------------------------------------
 # 5.  Each *.cpp file becomes its own executable.
@@ -100,3 +109,5 @@ add_executable( server_preprocess_model src/server_preprocess_model.cpp )
 add_executable( server_encrypted_compute src/server_encrypted_compute.cpp )
 target_link_libraries( server_encrypted_compute mlp_openfhe )
 target_link_libraries( server_encrypted_compute mlp_encryption_utils )
+target_link_libraries( server_encrypted_compute "${TORCH_LIBRARIES}" )
+

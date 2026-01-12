@@ -19,6 +19,7 @@
 
 using namespace lbcrypto;
 using CiphertextT = ConstCiphertext<DCRTPoly>;
+using MutableCiphertextT = Ciphertext<DCRTPoly>;
 using CCParamsT = CCParams<CryptoContextCKKSRNS>;
 using CryptoContextT = CryptoContext<DCRTPoly>;
 using EvalKeyT = EvalKey<DCRTPoly>;
@@ -33,8 +34,8 @@ struct Sample {
   float image[NORMALIZED_DIM];
 };
 
-ConstCiphertext<DCRTPoly> mlp_encrypt(CryptoContext<DCRTPoly> cc, std::vector<float> input, PublicKey<DCRTPoly> pk);
-std::vector<float> mlp_decrypt(CryptoContextT v11343, CiphertextT v11344, PrivateKeyT v11345);
+std::vector<MutableCiphertextT> mlp_encrypt(CryptoContext<DCRTPoly> cc, std::vector<float> v0, PublicKey<DCRTPoly> pk);
+std::vector<float> mlp_decrypt(CryptoContextT cc, std::vector<MutableCiphertextT> v0, PrivateKeyT sk);
 PublicKey<DCRTPoly> read_public_key(const InstanceParams& prms);
 PrivateKey<DCRTPoly> read_secret_key(const InstanceParams& prms);
 CryptoContext<DCRTPoly> read_crypto_context(const InstanceParams& prms);

@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
                                     SerType::BINARY)) {
         throw std::runtime_error("Failed to get secret key from  " + prms.seckeydir().string());
     }
-    Ciphertext<DCRTPoly> ctxt;     
+   std::vector<Ciphertext<DCRTPoly>> ctxt;     
     std::vector<float> output;
     auto result_path = prms.encrypted_model_predictions_file();
     std::ofstream out(result_path);
@@ -49,9 +49,10 @@ int main(int argc, char* argv[]) {
             throw std::runtime_error("Failed to get ciphertext from " + ctxt_path.string());
         }
         output = mlp_decrypt(cc, ctxt, sk);
-        auto max_id = argmax(output.data(), 1024);
+        auto max_id = argmax(output.data(), 10);
         out << max_id << '\n';
     }
 
     return 0;
 }
+
