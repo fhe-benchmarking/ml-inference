@@ -28,10 +28,9 @@ using PrivateKeyT = PrivateKey<DCRTPoly>;
 using PublicKeyT = PublicKey<DCRTPoly>;
 
 #define MNIST_DIM 784
-#define NORMALIZED_DIM 1024
 
 struct Sample {
-  float image[NORMALIZED_DIM];
+  float image[MNIST_DIM];
 };
 
 std::vector<MutableCiphertextT> mlp_encrypt(CryptoContext<DCRTPoly> cc, std::vector<float> v0, PublicKey<DCRTPoly> pk);
@@ -41,6 +40,7 @@ PrivateKey<DCRTPoly> read_secret_key(const InstanceParams& prms);
 CryptoContext<DCRTPoly> read_crypto_context(const InstanceParams& prms);
 void read_eval_keys(const InstanceParams& prms, CryptoContextT cc);
 void load_dataset(std::vector<Sample> &dataset, const char *filename);
+void write_dataset(const std::vector<Sample> &dataset, const char *filename);
 int argmax(float *A, int N);
 
 #endif  // ifndef MLP_ENCRYPTION_UTILS_H_

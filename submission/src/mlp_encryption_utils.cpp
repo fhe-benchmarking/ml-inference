@@ -133,23 +133,29 @@ void load_dataset(std::vector<Sample> &dataset, const char *filename) {
     for (int i = 0; i < MNIST_DIM; i++) {
       iss >> sample.image[i];
     }
-    // Pad remaining values with 0.0 if NORMALIZED_DIM > MNIST_DIM
-    for (int i = MNIST_DIM; i < NORMALIZED_DIM; i++) {
-      sample.image[i] = 0.0f;
-    }
-
     dataset.push_back(sample);
+  }
+}
+
+void write_dataset(const std::vector<Sample> &dataset, const char *filename) {
+  std::ofstream file(filename);
+  for (const auto &sample : dataset) {
+    for (int i = 0; i < MNIST_DIM; i++) {
+      file << sample.image[i];
+      if (i < MNIST_DIM - 1) {
+        file << " ";
+      }
+    }
+    file << "\n";
   }
 }
 
 int argmax(float *A, int N) {
   int max_idx = 0;
   for (int i = 1; i < N; i++) {
-    std::cout << A[i] << "," ;
     if (A[i] > A[max_idx]) {
       max_idx = i;
     }
   }
-  std::cout << std::endl;
   return max_idx;
 }

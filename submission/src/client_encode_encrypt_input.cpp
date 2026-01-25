@@ -33,9 +33,9 @@ int main(int argc, char* argv[]){
     PublicKey<DCRTPoly> pk = read_public_key(prms);
 
     std::vector<Sample> dataset;
-    load_dataset(dataset, prms.test_input_file().c_str());
+    load_dataset(dataset, prms.preprocessed_input_file().c_str());
     if (dataset.empty()) {
-        throw std::runtime_error("No data found in " + prms.test_input_file().string());
+        throw std::runtime_error("No data found in " + prms.preprocessed_input_file().string());
     }
     // Step 2: Encrypt inputs
     if (dataset.size() != prms.getBatchSize()) {
@@ -46,7 +46,7 @@ int main(int argc, char* argv[]){
     fs::create_directories(prms.ctxtupdir());
     for (size_t i = 0; i < dataset.size(); ++i) {
         auto *input = dataset[i].image;
-        std::vector<float> input_vector(input, input + NORMALIZED_DIM);
+        std::vector<float> input_vector(input, input + MNIST_DIM);
         ctxt = mlp_encrypt(cc, input_vector, pk);
         auto ctxt_path = prms.ctxtupdir()/("cipher_input_" + std::to_string(i) + ".bin");
         Serial::SerializeToFile(ctxt_path, ctxt, SerType::BINARY);

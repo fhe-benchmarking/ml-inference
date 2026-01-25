@@ -46,48 +46,9 @@ int main(int argc, char* argv[]){
     try {
         module = torch::jit::load(model_path);
         module.eval();
-        std::cout << "         [server] PyTorch model loaded successfully!" << std::endl;
+        std::cout << "         [server] PyTorch model weights successfully!" << std::endl;
     } catch (const c10::Error& e) {
         std::cerr << "         [server] Error loading PyTorch model: " << e.what() << std::endl;
-        return 1;
-    }
-
-    // Load and run inference on the test input
-    std::string test_pixels_path = "datasets/single/intermediate/test_pixels.txt";
-    std::ifstream pixel_file(test_pixels_path);
-    if (!pixel_file.is_open()) {
-        std::cerr << "         [server] Error: Could not open " << test_pixels_path << std::endl;
-        return 1;
-    }
-    
-    std::vector<float> pixels;
-    float pixel_value;
-    while (pixel_file >> pixel_value) {
-        pixels.push_back(pixel_value);
-    }
-    pixel_file.close();
-    
-    if (pixels.size() != 784) {
-        std::cerr << "         [server] Error: Expected 784 pixels but got " << pixels.size() << std::endl;
-        return 1;
-    }
-    std::cout << "         [server] Loaded " << pixels.size() << " pixels from test file" << std::endl;
-    
-    // Run PyTorch inference
-    try {
-        // Create input tensor [1, 784]
-        torch::Tensor input = torch::from_blob(pixels.data(), {1, 784}, torch::kFloat32).clone();
-        std::cout << "         [server] Running PyTorch inference..." << std::endl;
-        std::vector<torch::jit::IValue> inputs;
-        inputs.push_back(input);
-        auto output = module.forward(inputs).toTensor();
-        std::cout << "         [server] Output: " << output << std::endl;
-        // Get predicted class
-        auto max_result = output.max(1);
-        auto predicted_class = std::get<1>(max_result).item<int64_t>();
-        std::cout << "         [server] Predicted class: " << predicted_class << std::endl;
-    } catch (const c10::Error& e) {
-        std::cerr << "         [server] Error running PyTorch inference: " << e.what() << std::endl;
         return 1;
     }
 

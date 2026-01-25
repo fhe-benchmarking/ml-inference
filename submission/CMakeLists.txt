@@ -95,6 +95,7 @@ add_library( mlp_openfhe src/mlp_openfhe.cpp )
 add_executable( client_key_generation src/client_key_generation.cpp )
 
 add_executable( client_preprocess_input src/client_preprocess_input.cpp )
+target_link_libraries( client_preprocess_input mlp_encryption_utils )
 
 add_executable( client_encode_encrypt_input src/client_encode_encrypt_input.cpp )
 target_link_libraries( client_encode_encrypt_input mlp_encryption_utils )
