@@ -40,33 +40,24 @@ def main():
     harness_dir = params.rootdir/"harness"
     exec_dir = params.rootdir/ ("submission_remote" if remote_be else "submissions")
     
-    # check whether the exec_dir contains a subdirectory equals to the model name. 
-    model_exec_dir = exec_dir / model_name
-    if not model_exec_dir.is_dir():
-        print(f"[harness]: Model directory {model_exec_dir} not found.")
-        sys.exit(1)
-    
     # check whether the dataset exist 
     dataset_exec_dir = harness_dir/dataset_name
     if not dataset_exec_dir.is_dir():
         print(f"[harness]: Dataset directory {dataset_exec_dir} not found.")
         sys.exit(1)
 
-    # Validate model-dataset compatibility
-    model_dataset_map = {
-        "mlp": "mnist",
-        "resnet20": "cifar10",
-    }
-    if model_name in model_dataset_map:
-        expected_dataset = model_dataset_map[model_name]
-        if dataset_name != expected_dataset:
-            print(f"[harness]: ERROR - Model '{model_name}' requires dataset '{expected_dataset}', but '{dataset_name}' was specified.")
-            sys.exit(1)
-    else:
-        print(f"[harness]: WARNING - Unknown model '{model_name}'. Skipping model-dataset compatibility check.")
+    # Build model folder path: submissions/{dataset}/{model}/
+    model_folder_path = f"{dataset_name}/{model_name}"
+    model_exec_dir = exec_dir / model_folder_path
+    
+    if not model_exec_dir.is_dir():
+        print(f"[harness]: Model directory {model_exec_dir} not found for dataset '{dataset_name}' and model '{model_name}'.")
+        sys.exit(1)
+    
+    print(f"[harness] Using {model_name} model from {model_folder_path} with {dataset_name} dataset")
 
     # Build the submission if not built already
-    utils.build_submission(params.rootdir/"scripts", model_name, remote_be)
+    utils.build_submission(params.rootdir/"scripts", model_folder_path, remote_be)
 
     # Remove and re-create IO directory
     io_dir = params.iodir()

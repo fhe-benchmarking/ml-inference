@@ -51,9 +51,10 @@ def parse_submission_arguments(workload: str) -> Tuple[int, InstanceParams, int,
     parser.add_argument('--remote', action='store_true',
                         help='Run example submission in remote backend mode')
     parser.add_argument('--model', default='mlp', type=str,
-                        help='Pick a model run (default: mlp)')
+                        help='Pick a model to run (default: mlp)')
     parser.add_argument('--dataset', default='mnist', type=str,
-                        help='Pick a dataset run (default: mnist)')
+                        help='Pick a dataset run (default: mnist). Must be compatible with the selected model.')
+
     
 
     args = parser.parse_args()
@@ -63,7 +64,7 @@ def parse_submission_arguments(workload: str) -> Tuple[int, InstanceParams, int,
     clrtxt = args.clrtxt
     remote_be = args.remote
 
-    # adding model and dataset to the arguments
+    # Model and dataset selection
     model_name = args.model.lower()
     dataset_name = args.dataset.lower()
 

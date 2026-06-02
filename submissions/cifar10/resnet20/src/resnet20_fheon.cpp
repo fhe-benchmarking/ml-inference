@@ -34,7 +34,7 @@ using namespace std;
 using namespace lbcrypto;
 
 #ifndef WEIGHTS_DIR
-#define WEIGHTS_DIR "./submissions/resnet20/weights/resnet20/"
+#define WEIGHTS_DIR "./submissions/cifar10/resnet20/weights/resnet20/"
 #endif
 
 Ctext convolution_block(FHEONHEController &fheonHEController, FHEONANNController &fheonANNController, string layer, Ctext &encrytedInput, 

@@ -1,23 +1,22 @@
 {
+  "model_name": "resnet20",
+  "dataset_name": "cifar10",
   "Timing": {
-    "Test dataset generation": "4.7884s",
-    "Key Generation": "0.9751s",
-    "Encrypted model preprocessing": "0.0037s",
-    "Input generation": "2.3544s",
-    "Input preprocessing": "0.0036s",
-    "Input encryption": "0.0921s",
-    "Encrypted computation": "7.6145s",
-    "Result decryption": "0.0845s",
-    "Result postprocessing": "0.0028s",
-    "Total": "15.9192s"
+    "Test dataset generation": "12.2651s",
+    "Key Generation": "76.6203s",
+    "Encrypted model preprocessing": "0.004s",
+    "Input generation": "2.4214s",
+    "Input preprocessing": "0.0028s",
+    "Input encryption": "0.2306s",
+    "Encrypted computation": "993.9523s",
+    "Result decryption": "0.1378s",
+    "Result postprocessing": "0.003s",
+    "Total": "1085.6373s"
   },
   "Bandwidth": {
-    "Public and evaluation keys": "1.0G",
-    "Encrypted input": "5.0M",
-    "Encrypted results": "1.0M"
+    "Public and evaluation keys": "31.8G",
+    "Encrypted input": "14.0M",
+    "Encrypted results": "4.0M"
   },
-  "Server Reported": {
-    "Encrypted computation": "6.467s",
-    "Total": "6.467s"
-  }
+  "Server Reported": {}
 }
