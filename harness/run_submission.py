@@ -52,6 +52,19 @@ def main():
         print(f"[harness]: Dataset directory {dataset_exec_dir} not found.")
         sys.exit(1)
 
+    # Validate model-dataset compatibility
+    model_dataset_map = {
+        "mlp": "mnist",
+        "resnet20": "cifar10",
+    }
+    if model_name in model_dataset_map:
+        expected_dataset = model_dataset_map[model_name]
+        if dataset_name != expected_dataset:
+            print(f"[harness]: ERROR - Model '{model_name}' requires dataset '{expected_dataset}', but '{dataset_name}' was specified.")
+            sys.exit(1)
+    else:
+        print(f"[harness]: WARNING - Unknown model '{model_name}'. Skipping model-dataset compatibility check.")
+
     # Build the submission if not built already
     utils.build_submission(params.rootdir/"scripts", model_name, remote_be)
 
@@ -108,6 +121,7 @@ def main():
             rng = np.random.default_rng(seed)
             genqry_seed = rng.integers(0,0x7fffffff)
             cmd_args.extend(["--seed", str(genqry_seed)])
+        cmd_args.extend(["--dataset", dataset_name])
         utils.run_exe_or_python(harness_dir, "generate_input", *cmd_args)
         utils.log_step(4, "Input generation")
 
