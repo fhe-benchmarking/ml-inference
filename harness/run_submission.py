@@ -103,7 +103,7 @@ def main():
             print(f"\n         [harness] Run {run+1} of {num_runs}")
 
         # 4. Client-side: Generate a new random input using harness/generate_input.py
-        cmd_args = [str(size),]
+        cmd_args = [str(size), "--dataset", dataset_name]
         if seed is not None:
             # Use a different seed for each run but derived from the base seed
             rng = np.random.default_rng(seed)

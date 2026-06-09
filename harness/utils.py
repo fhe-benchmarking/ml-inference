@@ -50,7 +50,7 @@ def parse_submission_arguments(workload: str) -> Tuple[int, InstanceParams, int,
                         help='Specify with 1 if to rerun the cleartext computation')
     parser.add_argument('--remote', action='store_true',
                         help='Run example submission in remote backend mode')
-    parser.add_argument('--model', default='mlp', type=str,
+    parser.add_argument('--model', default=None, type=str,
                         help='Pick a model run (default: mlp)')
     parser.add_argument('--dataset', default='mnist', type=str,
                         help='Pick a dataset run (default: mnist)')
@@ -64,8 +64,19 @@ def parse_submission_arguments(workload: str) -> Tuple[int, InstanceParams, int,
     remote_be = args.remote
 
     # adding model and dataset to the arguments
-    model_name = args.model.lower()
     dataset_name = args.dataset.lower()
+
+    # Dataset-specific model defaults
+    dataset_model_defaults = {
+        "mnist": "mlp",
+        "cifar10": "resnet20",
+    }
+    
+    # Model selection: use provided model or dataset-specific default
+    if args.model is None:
+        model_name = dataset_model_defaults.get(dataset_name, "mlp")
+    else:
+        model_name = args.model.lower()
 
     # Use params.py to get instance parameters
     params = InstanceParams(size)
