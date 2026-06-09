@@ -41,7 +41,8 @@ def main():
     exec_dir = params.rootdir/ ("submission_remote" if remote_be else "submissions")
     
     # check whether the exec_dir contains a subdirectory equals to the model name. 
-    model_exec_dir = exec_dir / model_name
+    model_folder_path = f"{dataset_name}/{model_name}"
+    model_exec_dir = exec_dir / model_folder_path
     if not model_exec_dir.is_dir():
         print(f"[harness]: Model directory {model_exec_dir} not found.")
         sys.exit(1)
@@ -53,7 +54,8 @@ def main():
         sys.exit(1)
 
     # Build the submission if not built already
-    utils.build_submission(params.rootdir/"scripts", model_name, remote_be)
+    print(f"[harness] Using {model_name} model from {model_folder_path} with {dataset_name} dataset")
+    utils.build_submission(params.rootdir/"scripts", model_folder_path, remote_be)
 
     # Remove and re-create IO directory
     io_dir = params.iodir()
