@@ -47,7 +47,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/fheon)
 
 link_directories( ${OpenFHE_LIBDIR} )
 link_directories( ${OPENMP_LIBRARIES} )
-link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../../pre-built-library )
+link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../pre-built-library )
 link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/pre-built-library )
 
 # set(CMAKE_SKIP_BUILD_RPATH FALSE)
@@ -86,7 +86,7 @@ target_include_directories( encryption_utils PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
 
 # Use pre-built mlp_openfhe library
 add_library( mlp_openfhe STATIC IMPORTED )
-set_target_properties( mlp_openfhe PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../../pre-built-library/libmlp_openfhe.a )
+set_target_properties( mlp_openfhe PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../pre-built-library/libmlp_openfhe.a )
 
 # --------------------------------------------------------------------
 # 5.  Each *.cpp file becomes its own executable.
