@@ -501,7 +501,7 @@ namespace utilsdata {
         std::sort(rotation_positions.begin(), rotation_positions.end());
         rotation_positions.erase(std::unique(rotation_positions.begin(), rotation_positions.end()), rotation_positions.end());
         rotation_positions.erase(std::remove(rotation_positions.begin(), rotation_positions.end(), 0), rotation_positions.end());
-
+        
         return rotation_positions;
     }
 
