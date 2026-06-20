@@ -43,7 +43,7 @@ int main(int argc, char* argv[]){
     
     std::cout << "         [server] Loading keys" << std::endl;
 
-    const std::string model_path = "submissions/mlp/data/traced_model.pt";
+    const std::string model_path = "submissions/mnist/data/traced_model.pt";
     torch::jit::script::Module module;
     try {
         module = torch::jit::load(model_path);
