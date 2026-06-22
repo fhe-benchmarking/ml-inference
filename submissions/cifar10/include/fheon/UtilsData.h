@@ -499,11 +499,8 @@ namespace utilsdata {
         }
 
         std::sort(rotation_positions.begin(), rotation_positions.end());
-        auto new_end = std::remove(rotation_positions.begin(), rotation_positions.end(), 0);
-        new_end = std::unique(rotation_positions.begin(), rotation_positions.end());
-        unique(rotation_positions.begin(), rotation_positions.end());
-        rotation_positions.erase(new_end, rotation_positions.end());
-        std::sort(rotation_positions.begin(), rotation_positions.end());
+        rotation_positions.erase(std::unique(rotation_positions.begin(), rotation_positions.end()), rotation_positions.end());
+        rotation_positions.erase(std::remove(rotation_positions.begin(), rotation_positions.end(), 0), rotation_positions.end());
 
         return rotation_positions;
     }
