@@ -47,8 +47,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/fheon)
 
 link_directories( ${OpenFHE_LIBDIR} )
 link_directories( ${OPENMP_LIBRARIES} )
-link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/../pre-built-library )
-link_directories( ${CMAKE_CURRENT_SOURCE_DIR}/pre-built-library )
 
 # set(CMAKE_SKIP_BUILD_RPATH FALSE)
 # set(CMAKE_BUILD_WITH_INSTALL_RPATH OFF)
