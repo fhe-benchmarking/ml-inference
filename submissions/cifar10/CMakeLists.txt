@@ -69,7 +69,7 @@ else()
 endif()
 
 # --------------------------------------------------------------------
-# 4.  Create mlp library
+# 4.  Create FHEON library
 # --------------------------------------------------------------------
 add_library( fheonhecontroller ../fheon/FHEONHEController.cpp )
 target_include_directories( fheonhecontroller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/fheon )
@@ -81,10 +81,6 @@ target_include_directories( fheonanncontroller PRIVATE ${CMAKE_CURRENT_SOURCE_DI
 #------------------------------------------------------------------------
 add_library( encryption_utils src/encryption_utils.cpp )
 target_include_directories( encryption_utils PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include )
-
-# Use pre-built mlp_openfhe library
-add_library( mlp_openfhe STATIC IMPORTED )
-set_target_properties( mlp_openfhe PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../pre-built-library/libmlp_openfhe.a )
 
 # --------------------------------------------------------------------
 # 5.  Each *.cpp file becomes its own executable.
@@ -108,7 +104,7 @@ add_executable( client_postprocess src/client_postprocess.cpp )
 add_executable( server_preprocess_model src/server_preprocess_model.cpp )
 
 add_executable( server_encrypted_compute src/server_encrypted_compute.cpp src/resnet20_fheon.cpp )
-target_link_libraries( server_encrypted_compute mlp_openfhe)
+
 target_link_libraries( server_encrypted_compute encryption_utils )
 target_link_libraries( server_encrypted_compute fheonhecontroller )
 target_link_libraries( server_encrypted_compute fheonanncontroller )
