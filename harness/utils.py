@@ -50,7 +50,7 @@ def parse_submission_arguments(workload: str) -> Tuple[int, InstanceParams, int,
                         help='Specify with 1 if to rerun the cleartext computation')
     parser.add_argument('--remote', action='store_true',
                         help='Run example submission in remote backend mode')
-    parser.add_argument('--model', default='mlp', type=str,
+    parser.add_argument('--model', default=None, type=str,
                         help='Pick a model run (default: mlp)')
     parser.add_argument('--dataset', default='mnist', type=str,
                         help='Pick a dataset run (default: mnist)')
@@ -64,8 +64,19 @@ def parse_submission_arguments(workload: str) -> Tuple[int, InstanceParams, int,
     remote_be = args.remote
 
     # adding model and dataset to the arguments
-    model_name = args.model.lower()
     dataset_name = args.dataset.lower()
+
+    # Dataset-specific model defaults
+    dataset_model_defaults = {
+        "mnist": "mlp",
+        "cifar10": "resnet20",
+    }
+    
+    # Model selection: use provided model or dataset-specific default
+    if args.model is None:
+        model_name = dataset_model_defaults.get(dataset_name, "mlp")
+    else:
+        model_name = args.model.lower()
 
     # Use params.py to get instance parameters
     params = InstanceParams(size)
@@ -81,17 +92,17 @@ def ensure_directories(rootdir: Path):
                   f"not found in {rootdir}")
             sys.exit(1)
 
-def build_submission(script_dir: Path, model_name: str, remote_be: bool):
+def build_submission(script_dir: Path, dataset_name: str, remote_be: bool):
     """
     Build the submission, including pulling dependencies as neeed
     """
     if remote_be:
-        subprocess.run(["pip", "install", "-r", f"./submission_remote/{model_name}/requirements.txt"], check=True)
+        subprocess.run(["pip", "install", "-r", f"./submission_remote/{dataset_name}/requirements.txt"], check=True)
     else:
         # Clone and build OpenFHE if needed
         subprocess.run([script_dir/"get_openfhe.sh"], check=True)
         # CMake build of the submission itself
-        subprocess.run([script_dir/"build_task.sh", f"./submissions/{model_name}"], check=True)
+        subprocess.run([script_dir/"build_task.sh", f"./submissions/{dataset_name}"], check=True)
 
 class TextFormat:
     BOLD = "\033[1m"

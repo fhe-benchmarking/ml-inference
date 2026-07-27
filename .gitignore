@@ -79,5 +79,4 @@ harness/cifar10/cifar10_resnet20_model.pth
 # Remote-submission artifacts
 ek.lpk
 submission_remote/__pycache__/
-
-
+submission_remote/mnist/__pycache__/
