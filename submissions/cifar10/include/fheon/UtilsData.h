@@ -25,7 +25,7 @@
 ********************************************************************************************************************/
 
 /**
- * @file DataUtils
+ * @file UtilsData.h
  * @brief Manage data generation, reading from files, and arranging for use in networks.
  *
  * This file provides functions to handle data preparation tasks, including
@@ -39,6 +39,7 @@
 #include <iostream>
 #include <cmath>
 #include <openfhe.h>
+#include "Utils.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -179,6 +180,7 @@ namespace utilsdata {
      * @param packedVec Plaintext vector to print.
      */
     static inline void printPtextVector(Plaintext packedVec) {
+        if (utils::verbose_level < 1) return;
         vector<complex<double>> finalResult = packedVec->GetCKKSPackedValue();
         cout << finalResult << endl;
         cout << endl;
@@ -188,7 +190,7 @@ namespace utilsdata {
     /**
      * @brief Generate a binary mask of ones followed by zeros.
      * 
-     * @param ones_width Number of ones.
+     * @param ones_size Number of ones.
      * @param vector_size Total size of mask.
      * @return Mask vector.
     */
@@ -197,6 +199,12 @@ namespace utilsdata {
         vector<double> zeros_vector((vector_size - ones_size), 0.0);
         ones_vector.insert(ones_vector.end(), zeros_vector.begin(), zeros_vector.end());
         return ones_vector;
+    }
+
+    static inline vector<double> generate_scale_and_clean_mask(double scale_value, int vector_size){
+        vector<double> zeros_vector(vector_size, 0.0);
+        zeros_vector[0] = scale_value;
+        return zeros_vector;
     }
 
     /**
@@ -246,6 +254,22 @@ namespace utilsdata {
         }
     }
 
+
+    /**
+     * @brief Generate a one-hot mask.
+     * 
+     * @param position Index of the one-hot element.
+     * @param vector_size Total size of the mask.
+     * @return One-hot mask vector.
+     */
+    static inline vector<double> generate_one_hot_mask(int position, int vector_size){
+        vector<double> one_hot_vector(vector_size, 0.0);
+        if(position < vector_size){
+            one_hot_vector[position] = 1.0;
+        }
+        return one_hot_vector;
+    }
+
     /**
      * @brief Approximate smooth greater-than step function.
      * 
@@ -268,6 +292,16 @@ namespace utilsdata {
      */
     static inline double innerRelu(double x, double scale){
         if (x < 0) return 0; else return (1 / scale) * x;
+    }
+
+
+    static inline double factorial(int n) {
+        if (n == 0 || n == 1) return 1;
+        double result = 1.0;
+        for (int i = 2; i <= n; i++) {
+            result *= i;
+        }
+        return result;
     }
 
 
@@ -313,6 +347,109 @@ namespace utilsdata {
         return n;
     }
 
+
+    static inline unsigned int localLog2(unsigned int n) {
+        unsigned int logValue = 0;
+        while (n >>= 1) {
+            logValue++;
+        }
+        return logValue;
+    }
+
+    /**
+     * @brief Tile a ciphertext's real data across its full slot capacity so
+     * that later EvalRotate/EvalFastRotation calls behave as true circular
+     * rotation over exactly `elementCount` slots, instead of leaking through
+     * the empty (zero) padding between `elementCount` and `totalSlots`.
+     *
+     * CKKS packs every ciphertext into a fixed `totalSlots`-wide ring shared
+     * by the whole network, but a given layer's real data
+     * (batchSize * width * width) is often smaller than that ring. Rotating
+     * such a ciphertext directly wraps through true zeros near the start/end
+     * of the real data instead of the intended circular neighbor (e.g. the
+     * last row of the last batch image), corrupting any tap whose offset
+     * would otherwise need that wraparound. Doubling the covered range
+     * (add a copy of itself rotated by -coverage, repeatedly) until it fills
+     * the ring fixes this: every slot in [0, elementCount) now correctly
+     * reads its circular neighbor for any rotation used by 3x3-kernel
+     * convolution taps. No-op (returns the input unchanged) when the ring is
+     * already exactly (or not evenly divisible into) `elementCount` slots.
+     *
+     * @param context      CryptoContext used for the rotation/addition ops.
+     * @param ciphertext   Ciphertext holding real data in its first elementCount slots.
+     * @param elementCount Number of meaningful (real) slots, e.g. batchSize*width*width.
+     * @param totalSlots   Total slot capacity of the ciphertext's packing (num_slots).
+     * @return Ciphertext whose first elementCount slots are unchanged, with
+     *         elementCount-periodic copies filling the rest of totalSlots.
+     */
+    static inline Ctext replicate_across_ring(CryptoContext<DCRTPoly>& context, Ctext ciphertext, int elementCount, int totalSlots) {
+        int reps = totalSlots / elementCount;
+        if (reps <= 1) {
+            return ciphertext;
+        }
+        reps = static_cast<int>(nextPowerOf2(static_cast<unsigned int>(reps)));
+        Ctext tiled = ciphertext;
+        int coverage = elementCount;
+        for (int r = 1; r < reps; r *= 2) {
+            tiled = context->EvalAdd(tiled, context->EvalRotate(tiled, -coverage));
+            coverage *= 2;
+        }
+        return tiled;
+    }
+
+
+    static inline double log2_approx(double x) {
+        if (x <= 0.0) return 0.0;
+
+        int k;
+        double m = std::frexp(x, &k);  // x = m * 2^k, m in [0.5,1)
+
+        m *= 2.0;
+        k -= 1;
+
+        // polynomial approximation of log2(m)
+        double t = m - 1.0;
+
+        double log2_m =
+            1.442695 * (
+                t
+                - 0.5 * t * t
+                + 0.333333 * t * t * t
+            );
+
+        return k + log2_m;
+    }
+
+
+
+    static inline double ln_approx(double x) {
+        int terms = 20;
+        if (x <= 0) {
+            return 0;
+        }
+
+        double y = x - 1.0;
+        double result = 0.0;
+        double power = y;
+
+        for (int n = 1; n <= terms; n++) {
+            double term = power / n;
+
+            if (n % 2 == 0)
+                result -= term;
+            else
+                result += term;
+
+            power *= y;
+        }
+
+        return result;
+    }
+
+    static inline double doerfler_ln(double x) {
+        return 6.0 * (x - 1.0) /
+            (x + 1.0 + 4.0 * sqrt(x));
+    }
 
 
     /**
@@ -364,6 +501,7 @@ namespace utilsdata {
         vector<vector<double>> data = loadCSV(fileName);
         vector<double> bias; 
         for (size_t i = 0; i< data.size(); i++) {
+            
             bias = data[0];
             // cout << " bias data: "<< bias << endl;
         }
@@ -399,7 +537,12 @@ namespace utilsdata {
             for(int j=0; j<inputChannels; j++){
                 for(int k=0; k<rowsWidth; k++){
                     for(int l=0; l<imgCols; l++){
-                        reshapedData[i][j][k][l] = raw_weights[indexVal];
+
+                        double cellVal = raw_weights[indexVal];
+                        if( abs(cellVal) < 1e-10){
+                            cellVal = 0.0;
+                        }
+                        reshapedData[i][j][k][l] = cellVal;
                         indexVal+=1;
                     }
                 }
@@ -433,7 +576,11 @@ namespace utilsdata {
         int indexVal = 0; 
         for(int i = 0; i< outputChannels; i++){
             for(int j=0; j< inputChannels; j++){
-                reshapedData[i][j] = raw_weights[indexVal];
+                double cellVal = raw_weights[indexVal];
+                if( abs(cellVal) < 1e-10){
+                    cellVal = 0.0;
+                }
+                reshapedData[i][j] = cellVal;
                 indexVal+=1;
             }
         }
@@ -503,6 +650,59 @@ namespace utilsdata {
         rotation_positions.erase(std::remove(rotation_positions.begin(), rotation_positions.end(), 0), rotation_positions.end());
         
         return rotation_positions;
+    }
+
+
+    /**
+     * @brief Mask of windows of ones separated by a zero, with leading and trailing zero padding, repeated over tiles.
+     *
+     * One tile: starting_padding zeros, then windows of window_length ones each followed by one zero, until
+     * max_length - ending_padding slots, trimmed or zero-padded to max_length. The tile is repeated tile_count times.
+     *
+     * @param starting_padding Leading zeros of every tile.
+     * @param ending_padding   Slots left at the end of every tile (zeros).
+     * @param window_length    Ones per window.
+     * @param max_length       Slots of one tile.
+     * @param tile_count       Number of tiles (e.g. channels).
+     * @return Mask of tile_count * max_length values.
+     */
+    static inline vector<double> build_tile_mask(int starting_padding, int ending_padding, 
+        int window_length, int max_length, int tile_count) {
+    
+        vector<double> mask;
+
+        // Add starting padding
+        for (int i = 0; i < starting_padding; ++i) {
+            mask.push_back(0.0);
+        }
+
+        // Add windows of 1s and a trailing 0
+        while (mask.size() < static_cast<size_t>(max_length - ending_padding)) {
+            for (int j = 0; j < window_length; ++j) {
+                mask.push_back(1.0);
+            }
+            mask.push_back(0.0);
+        }
+
+        // Trim or pad the mask to match max_length
+        while (mask.size() > static_cast<size_t>(max_length)) {
+            mask.pop_back();
+        }
+        while (mask.size() < static_cast<size_t>(max_length)) {
+            mask.push_back(0.0);
+        }
+
+        // Add ending padding
+        for (int i = 0; i < ending_padding; ++i) {
+            mask[max_length - i - 1] = 0.0;
+        }
+
+        // Tile the mask
+        std::vector<double> tiled_mask;
+        for (int i = 0; i < tile_count; ++i) {
+            tiled_mask.insert(tiled_mask.end(), mask.begin(), mask.end());
+        }
+        return tiled_mask;
     }
 
 }

@@ -34,222 +34,208 @@ using namespace std;
 using namespace lbcrypto;
 
 #ifndef WEIGHTS_DIR
-#define WEIGHTS_DIR "./submissions/cifar10/resnet20/weights/resnet20/"
+#define WEIGHTS_DIR "./submissions/cifar10/weights/resnet20/"
 #endif
 
-Ctext convolution_block(FHEONHEController &fheonHEController, FHEONANNController &fheonANNController, string layer, Ctext &encrytedInput, 
-                        int &dataWidth, int kernelWidth, int striding, int inputChannels, int outputChannels);
-vector<Ctext> double_shortcut_convolution_block(FHEONHEController &fheonHEController, FHEONANNController &fheonANNController, string layer, 
-                        Ctext &encrytedInput, int &dataWidth, int inputChannels, int outputChannels);
-Ctext resnet_block(FHEONHEController &fheonHEController, FHEONANNController &fheonANNController, string layer, Ctext &encrytedInput,
-                        int &dataWidth, int &dataSize, int inputChannels, int outputChannels, int bootstrapState, bool shortcutConv);
-Ctext fc_layer_block(FHEONHEController &fheonHEController, FHEONANNController &fheonANNController, string layer,
-                     Ctext encryptedInput, int inputChannels, int outputChannels);
+/** fixed scale of every ReLU (in the order of the network: layer0, then relu1 and relu2 of every block). The server
+ *  never decrypts, so the scales cannot be read from the activations as FHEON's ResNet20Diagonal does: every scale bounds
+ *  |x| at its ReLU for every image (the Chebyshev approximation diverges outside [-scale, scale]). They are the largest
+ *  pre-activations of the plaintext network over the CIFAR-10 training and test sets (60000 images), +5%, rounded up */
+static const vector<double> reluScales = {
+    9,                                      // layer0
+    19, 15,   11, 16,   7, 16,              // layer1 blocks 1-3 (relu1, relu2)
+    8, 13,    5, 15,    6, 17,              // layer2 blocks 1-3
+    7, 13,    8, 42,    3, 48};             // layer3 blocks 1-3
 
-Ctext resnet20(FHEONHEController &fheonHEController, CryptoContext<DCRTPoly> &context, Ctext &encryptedInput, string pubkey_dir) {
-
-    FHEONANNController fheonANNController(context);
-
-    int img_depth = 3;
-    int img_cols = 32;
-    int kernelSize = 3;
-    int striding = 1;
-    int avgpoolSize = 8;
-    vector<int> channelValues = {16, 32, 64, 10};
-    int rotPositions = 16;
-    int dataWidth = img_cols;
-    int dataSize = img_depth * pow(img_cols, 2);
-    int reluScale = 10;
-    int polyDeg = 59;
-
-    cout << "         [server] Starting encrypted ResNet20 inference" << endl;
-
-    string mk_file = "mk.bin";
-    cout << "         [server] Layer 0" << endl;
-    string l1_rk = "layer1_rk.bin";
-    fheonHEController.read_evaluation_keys(context, pubkey_dir, mk_file, l1_rk);
-    context->EvalBootstrapSetup(config.levelBudget);
-    Ctext convData = convolution_block(fheonHEController, fheonANNController, "layer0_conv1", encryptedInput,
-                                    dataWidth, kernelSize, striding, img_depth, channelValues[0]);
-    dataSize = channelValues[0] * pow(dataWidth, 2);
-    convData = fheonANNController.he_relu(convData, reluScale, dataSize, polyDeg);
-
-    cout << "         [server] Layer 1" << endl;
-    cout << "                  [server] Block 1" << endl;
-    convData = resnet_block(fheonHEController, fheonANNController,"layer1_block1", convData, dataWidth, dataSize,
-                            channelValues[0], channelValues[0], false, false);
-    cout << "                  [server] Block 2" << endl;
-    convData = resnet_block(fheonHEController, fheonANNController, "layer1_block2", convData, dataWidth, dataSize,
-                            channelValues[0], channelValues[0], true, false);
-    cout << "                  [server] Block 3" << endl;
-    convData = resnet_block(fheonHEController, fheonANNController, "layer1_block3", convData, dataWidth, dataSize,
-                            channelValues[0], channelValues[0], true, false);
-
-    string l2_rk = "layer2_rk.bin";
-    fheonHEController.read_evaluation_keys(context, pubkey_dir, mk_file, l2_rk);
-    cout << "         [server] Layer 2" << endl;
-    cout << "                  [server] Block 1" << endl;
-    convData = resnet_block(fheonHEController, fheonANNController, "layer2_block1", convData, dataWidth, dataSize,
-                            channelValues[0], channelValues[1], true, true);
-    cout << "                  [server] Block 2" << endl;
-    convData = resnet_block(fheonHEController, fheonANNController, "layer2_block2", convData, dataWidth, dataSize,
-                            channelValues[1], channelValues[1], true, false);
-    cout << "                  [server] Block 3" << endl;
-    convData = resnet_block(fheonHEController, fheonANNController, "layer2_block3", convData, dataWidth, dataSize,
-                            channelValues[1], channelValues[1], true, false);
-
-    string l3_rk = "layer3_rk.bin";
-    fheonHEController.read_evaluation_keys(context, pubkey_dir, mk_file, l3_rk);
-    cout << "         [server] Layer 3" << endl;
-    cout << "                  [server] Block 1" << endl;
-    convData = resnet_block(fheonHEController, fheonANNController, "layer3_block1", convData, dataWidth, dataSize,
-                            channelValues[1], channelValues[2], true, true);
-    cout << "                  [server] Block 2" << endl;
-    convData = resnet_block(fheonHEController, fheonANNController, "layer3_block2", convData, dataWidth, dataSize,
-                            channelValues[2], channelValues[2], true, false);
-    cout << "                  [server] Block 3" << endl;
-    convData = resnet_block(fheonHEController, fheonANNController, "layer3_block3", convData, dataWidth, dataSize,
-                            channelValues[2], channelValues[2], true, false);
-
-    string l4_rk = "layer4_rk.bin";
-    fheonHEController.read_evaluation_keys(context, pubkey_dir, mk_file, l4_rk);
-    cout << "         [server] Pool + Classifier" << endl;
-    convData = fheonHEController.bootstrap_function(convData);
-    convData = fheonANNController.he_globalavgpool( convData, dataWidth, channelValues[2], avgpoolSize, rotPositions);
-    convData = fc_layer_block(fheonHEController, fheonANNController, "layer_fc", convData, channelValues[2], channelValues[3]);
-    return convData;
+/** a bootstrapping is followed either by a ReLU and a convolution (reluLevels + 1 levels) or by a stride-2 block.
+ *  When the two channel stages of the stride-2 downsampling do not fit in those levels, a single stage is used */
+static FHEONLayout stride2Layout(int inputWidth, int inputChannels){
+    FHEONLayout layout;
+    int twoStageLevels = static_cast<int>(log2(inputWidth/2)) + 1 + 2 + 1;
+    layout.channelGroup = (twoStageLevels > reluLevels + 1) ? inputChannels : 0;
+    return layout;
 }
 
-Ctext convolution_block(FHEONHEController &fheonHEController, FHEONANNController &fheonANNController, string layer, Ctext &encrytedInput, 
-                            int &dataWidth, int kernelWidth, int striding, int inputChannels, int outputChannels) {
+FHEONHEController::HEConfig resnet20_he_config(const string &keysFolder) {
+    FHEONHEController::HEConfig heinitConfig;
+    heinitConfig.ringDim = 15;
+    heinitConfig.numSlots = 14;
+    heinitConfig.mlevelBootstrap = reluLevels + 2;
+    heinitConfig.dcrtBits = 48;
+    heinitConfig.firstMod = 52;
+    heinitConfig.numDigits = 4;
+    heinitConfig.levelBudget = {4, 4};
+    heinitConfig.serialize = true;
+    heinitConfig.keysFolder = keysFolder;
+    /** no keys with the context: the stage key files hold exactly the bootstrapping and rotation keys of their layers
+     *  (the diagonal primitives never call EvalSum) */
+    heinitConfig.contextBootstrapKeys = false;
+    heinitConfig.contextSumKeys = false;
+    return heinitConfig;
+}
 
-    int widthSq = pow(dataWidth, 2);
-    int encodeLevel = encrytedInput->GetLevel();
-    vector<vector<Ptext>> kernelData;
-    string dataPath = string(WEIGHTS_DIR) + layer;
-
-    auto biasData = load_bias(dataPath + "_bias.csv");
-    auto rawKernel = load_weights(dataPath + "_weight.csv", outputChannels,
-                                    inputChannels, kernelWidth, kernelWidth);
-    for (int i = 0; i < outputChannels; i++) {
-        auto encodeKernel = fheonHEController.encode_kernel_optimized(rawKernel[i], widthSq, encodeLevel);
-        kernelData.push_back(encodeKernel);
+vector<int> resnet20_stage_slots() {
+    vector<int> stageSlots;
+    for (int stage = 0; stage < numStages; stage++) {
+        stageSlots.push_back(channelValues[stage]*(imgCols >> stage)*(imgCols >> stage));
     }
-
-    auto biasDataEncoded = fheonHEController.encode_bais_input(biasData, widthSq, encodeLevel);
-    auto conv_data = fheonANNController.he_convolution_optimized(encrytedInput, kernelData, 
-                                biasDataEncoded, dataWidth, inputChannels, outputChannels, striding);
-
-    kernelData.clear();
-    kernelData.shrink_to_fit();
-    biasData.clear();
-    rawKernel.clear();
-    rawKernel.shrink_to_fit();
-
-    return conv_data;
+    return stageSlots;
 }
 
-vector<Ctext> double_shortcut_convolution_block(FHEONHEController &fheonHEController, FHEONANNController &fheonANNController, 
-                    string layer, Ctext &encrytedInput, int &dataWidth, int inputChannels, int outputChannels) {
+string resnet20_stage_key_file(int stage) {
+    return "layer" + to_string(stage+1) + ".bin";
+}
 
-    string dataPath = string(WEIGHTS_DIR) + layer;
-    int widthSq = pow(dataWidth, 2);
-    int widthOutSq = pow((dataWidth / 2), 2);
-    int kernelWidth = 3;
-    int encodeLevel = encrytedInput->GetLevel();
-    vector<vector<Ptext>> kernelData;
-    vector<Ptext> shortcutkernelData;
-
-    /*** convolution and shortcut data */
-    auto biasData = load_bias(dataPath + "_conv1_bias.csv");
-    auto shortcutbiasData = load_bias(dataPath + "_shortcut_bias.csv");
-    auto rawKernel = load_weights(dataPath + "_conv1_weight.csv", outputChannels,
-                                    inputChannels, kernelWidth, kernelWidth);
-    auto shortcutrawKernel = load_fc_weights(dataPath + "_shortcut_weight.csv",
-                                            outputChannels, inputChannels);
-    for (int i = 0; i < outputChannels; i++) {
-        auto encodeKernel = fheonHEController.encode_kernel_optimized(rawKernel[i], widthSq, encodeLevel);
-        auto encodeWeights = fheonHEController.encode_bais_input(shortcutrawKernel[i], widthSq);
-        kernelData.push_back(encodeKernel);
-        shortcutkernelData.push_back(encodeWeights);
+/** rotations of a stage: its convolutions, the first layer (stage 1), and the stride-2 block that ends it or the pooling + linear layer */
+vector<int> resnet20_stage_rotation_keys(ANNController &fheonANNController, int stage){
+    int width = imgCols >> stage;
+    int channels = channelValues[stage];
+    vector<vector<int>> keys;
+    keys.push_back(fheonANNController.generate_convolution_rotation_positions(width, channels, channels, 3, 1, 1));
+    if (stage == 0) {
+        keys.push_back(fheonANNController.generate_convolution_rotation_positions(width, imgDepth, channels, 3, 1, 1));
     }
-    auto biasDataEncoded = fheonHEController.encode_bais_input(biasData, widthOutSq);
-    auto shortcutbiasDataEncoded = fheonHEController.encode_bais_input(shortcutbiasData, widthOutSq);
-
-    auto returnedCiphers = fheonANNController.he_convolution_and_shortcut_optimized(
-                                    encrytedInput, kernelData, shortcutkernelData, biasDataEncoded,
-                                    shortcutbiasDataEncoded, dataWidth, inputChannels, outputChannels);
-
-    kernelData.clear();
-    kernelData.shrink_to_fit();
-    rawKernel.clear();
-    rawKernel.shrink_to_fit();
-    biasData.clear();
-
-    shortcutkernelData.clear();
-    shortcutkernelData.shrink_to_fit();
-    shortcutrawKernel.clear();
-    shortcutrawKernel.shrink_to_fit();
-    shortcutbiasData.clear();
-    return returnedCiphers;
-}
-
-Ctext resnet_block(FHEONHEController &fheonHEController, FHEONANNController &fheonANNController, string layer, Ctext &encrytedInput, 
-                    int &dataWidth, int &dataSize, int inputChannels, int outputChannels, int bootstrapState, bool shortcutConv) {
-
-    int kernelWidth = 3;
-    int striding = 1;
-    int polyDeg = 59;
-    int reluScale = 15;
-    Ctext convData;
-    Ctext shortcutConvData = encrytedInput->Clone();
-
-    if (shortcutConv) {
-        encrytedInput = fheonHEController.bootstrap_function(encrytedInput);
-        auto doubleResults = double_shortcut_convolution_block(fheonHEController, fheonANNController, layer, encrytedInput, dataWidth,
-                                    inputChannels, outputChannels);
-        dataWidth = dataWidth / 2;
-        dataSize = (outputChannels * pow(dataWidth, 2));
-        convData = doubleResults[0]->Clone();
-        shortcutConvData = doubleResults[1]->Clone();
+    if (stage + 1 < numStages) {
+        keys.push_back(fheonANNController.generate_convolution_rotation_positions(width, channels, channelValues[stage+1], 3, 1, 2, stride2Layout(width, channels)));
     } else {
-        convData = convolution_block(fheonHEController, fheonANNController, layer + "_conv1", encrytedInput,
-                                    dataWidth, kernelWidth, striding, inputChannels, outputChannels);
+        FHEONLayout layout;
+        layout.inputSlots = channels * width * width;
+        keys.push_back(fheonANNController.generate_linear_rotation_positions(channelValues[3], 0, layout));
     }
-    if (bootstrapState) {
-        convData = fheonHEController.bootstrap_function(convData);
-    }
-    
-    convData = fheonANNController.he_relu(convData, reluScale, dataSize, polyDeg);
-    Ctext secConvData = convolution_block(fheonHEController, fheonANNController, layer + "_conv2", convData,
-                                    dataWidth, kernelWidth, striding, outputChannels, outputChannels);
-    Ctext sumConvData = fheonANNController.he_sum_two_ciphertexts(secConvData, shortcutConvData);
-    sumConvData = fheonHEController.bootstrap_function(sumConvData);
-    if (layer == "layer3_block2" || layer == "layer3_block3") {
-            reluScale = 25;
-    }
-    sumConvData = fheonANNController.he_relu(sumConvData, reluScale, dataSize, polyDeg);
-    return sumConvData;
+    return serialize_rotation_keys(keys);
 }
 
-Ctext fc_layer_block(FHEONHEController &fheonHEController, FHEONANNController &fheonANNController, string layer,
-                     Ctext encryptedInput, int inputChannels, int outputChannels) {
+int resnet20_input_level(const CryptoContext<DCRTPoly> &context) {
+    int numTowers = context->GetCryptoParameters()->GetElementParams()->GetParams().size();
+    return max(1, numTowers - (3 + 2*reluLevels + 3));
+}
 
+/************************************************* layers *************************************************/
+
+static Ctext convolution_block(FHEONHEController &fheonHEController, ANNController &fheonANNController, string layer,
+                               Ctext &encryptedInput, int dataWidth, int inputChannels, int outputChannels){
     string dataPath = string(WEIGHTS_DIR) + layer;
-    auto fcBiasData = load_bias(dataPath + "_bias.csv");
-    auto fc_rawKernelData = load_fc_weights(dataPath + "_weight.csv", outputChannels, inputChannels);
-    vector<Ptext> fcKernelData;
-    for (int i = 0; i < outputChannels; i++) {
-            auto encodeWeights = fheonHEController.encode_input(fc_rawKernelData[i]);
-            fcKernelData.push_back(encodeWeights);
-    }
-    Ptext encodedbaisData = fheonHEController.encode_input(fcBiasData);
-    Ctext fcData = fheonANNController.he_linear_optimized(encryptedInput, fcKernelData, encodedbaisData, inputChannels, outputChannels);
+    int kernelWidth = 3;
+    auto biasVector = load_bias(dataPath+"_bias.csv");
+    auto rawKernelData = load_weights(dataPath+"_weight.csv", outputChannels, inputChannels, kernelWidth, kernelWidth);
+    int numSlots = encryptedInput->GetSlots();
+    int encode_level = fheonANNController.convolution_kernel_level(encryptedInput, dataWidth);
+    auto kernelData = fheonANNController.encode_convolution_kernel(fheonHEController, rawKernelData, dataWidth, numSlots, encode_level);
+    auto biasEncoded = fheonANNController.encode_convolution_bias(fheonHEController, biasVector, dataWidth, numSlots, encode_level);
+    return fheonANNController.he_convolution(encryptedInput, kernelData, biasEncoded, dataWidth, inputChannels, outputChannels, 3, 1);
+}
 
-    fcKernelData.clear();
-    fcKernelData.shrink_to_fit();
-    fcBiasData.clear();
-    fc_rawKernelData.clear();
-    fcBiasData.clear();
-    return fcData;
+static vector<Ctext> double_shortcut_convolution_block(FHEONHEController &fheonHEController, ANNController &fheonANNController, string layer,
+                                                       Ctext &encryptedInput, int dataWidth, int inputChannels, int outputChannels){
+    string dataPath = string(WEIGHTS_DIR) + layer;
+    int kernelWidth = 3;
+    int widthOut = dataWidth/2;
+    int inputSlots = encryptedInput->GetSlots();
+    FHEONLayout layout = stride2Layout(dataWidth, inputChannels);
+    int encode_level = fheonANNController.convolution_kernel_level(encryptedInput, dataWidth, 2, layout);
+
+    auto biasVector = load_bias(dataPath+"_conv1_bias.csv");
+    auto rawKernelData = load_weights(dataPath+"_conv1_weight.csv", outputChannels, inputChannels, kernelWidth, kernelWidth);
+    auto kernelData = fheonANNController.encode_convolution_kernel(fheonHEController, rawKernelData, dataWidth, inputSlots, encode_level, 2, 1, layout);
+    auto biasEncoded = fheonANNController.encode_convolution_bias(fheonHEController, biasVector, widthOut, inputSlots/2, encode_level);
+
+    auto shortcutbiasVector = load_bias(dataPath+"_shortcut_bias.csv");
+    auto shortcutrawKernelData = load_fc_weights(dataPath+"_shortcut_weight.csv",  outputChannels, inputChannels);
+    auto shortcutKernelData = fheonANNController.encode_shortcut_kernel(fheonHEController, shortcutrawKernelData, dataWidth, inputSlots, encode_level);
+    auto shortcutBiasEncoded = fheonANNController.encode_convolution_bias(fheonHEController, shortcutbiasVector, widthOut, inputSlots/2, encode_level);
+
+    return fheonANNController.he_convolution_and_shortcut_optimized(encryptedInput, kernelData, shortcutKernelData, biasEncoded, shortcutBiasEncoded,
+                                                                   dataWidth, inputChannels, outputChannels, layout);
+}
+
+void resnet20_use_stage_keys(FHEONHEController &fheonHEController, int stage){
+    vector<int> stageSlots = resnet20_stage_slots();
+    fheonHEController.clear_context(stageSlots[(stage + numStages - 1) % numStages]);
+    fheonHEController.read_evaluation_keys(fheonHEController.getContext(), resnet20_stage_key_file(stage));
+    fheonHEController.prepare_bootstrapping(stageSlots[stage]);
+}
+
+/** first part of a stride-2 block, with the keys of the stage it ends: bootstrapping, stride-2 convolution and shortcut.
+ *  The two outputs have the slot count of the next stage */
+static vector<Ctext> downsample_head(FHEONHEController &fheonHEController, ANNController &fheonANNController, string layer, Ctext encryptedInput,
+                                     int dataWidth, int inputChannels, int outputChannels){
+    printModelLayer(layer);
+    encryptedInput = fheonHEController.bootstrap_function(encryptedInput, bootstrapIterations);
+    return double_shortcut_convolution_block(fheonHEController, fheonANNController, layer, encryptedInput, dataWidth, inputChannels, outputChannels);
+}
+
+/** rest of a block from the output of its first convolution: ReLU, second convolution, shortcut sum, ReLU */
+static Ctext block_tail(FHEONHEController &fheonHEController, ANNController &fheonANNController, string layer, Ctext convData,
+                        Ctext shortcut_convData, int dataWidth, int channels, bool bootstrapState, int reluIndex){
+    int dataSize = convData->GetSlots();
+    if (bootstrapState) {
+        convData = fheonHEController.bootstrap_function(convData, bootstrapIterations);
+    }
+    convData = fheonANNController.he_relu(convData, reluScales[reluIndex], dataSize, reluDegree);
+
+    auto second_convData = convolution_block(fheonHEController, fheonANNController, layer+"_conv2", convData, dataWidth, channels, channels);
+    Ctext sum_convData = fheonANNController.he_sum_two_ciphertexts(second_convData, shortcut_convData);
+    sum_convData = fheonHEController.bootstrap_function(sum_convData, bootstrapIterations);
+    return fheonANNController.he_relu(sum_convData, reluScales[reluIndex+1], dataSize, reluDegree);
+}
+
+/** a block with the identity shortcut */
+static Ctext resnet_block(FHEONHEController &fheonHEController, ANNController &fheonANNController, string layer, Ctext encryptedInput,
+                          int dataWidth, int channels, bool bootstrapState, int reluIndex){
+    printModelLayer(layer);
+    Ctext convData = convolution_block(fheonHEController, fheonANNController, layer+"_conv1", encryptedInput, dataWidth, channels, channels);
+    return block_tail(fheonHEController, fheonANNController, layer, convData, encryptedInput, dataWidth, channels, bootstrapState, reluIndex);
+}
+
+static Ctext avgpool_fc_layer_block(FHEONHEController &fheonHEController, ANNController &fheonANNController, string layer,
+                                    Ctext &encryptedInput, int dataWidth, int inputChannels, int outputChannels){
+    printModelLayer(layer);
+    string dataPath = string(WEIGHTS_DIR) + layer;
+    auto fc_biasVector = load_bias(dataPath+"_bias.csv");
+    auto fc_rawKernelData = load_fc_weights(dataPath+"_weight.csv", outputChannels, inputChannels);
+    /** the global average pooling is part of the linear layer: every input is the average of the dataWidth^2 values of its channel */
+    int channelSize = dataWidth*dataWidth;
+    FHEONLayout layout;
+    layout.weightScale = 1.0/channelSize;
+    layout.inputPositions.resize(inputChannels);
+    for (int ch = 0; ch < inputChannels; ch++) {
+        for (int i = 0; i < channelSize; i++) { layout.inputPositions[ch].push_back(ch*channelSize + i); }
+    }
+    int numSlots = encryptedInput->GetSlots();
+    int encode_level = fheonANNController.convolution_kernel_level(encryptedInput, 1);
+    auto fc_kernelData = fheonANNController.encode_linear_weights(fheonHEController, fc_rawKernelData, numSlots, encode_level, layout);
+    Ptext fc_biasEncoded = fheonANNController.encode_linear_bias(fheonHEController, fc_biasVector, numSlots, encode_level);
+    return fheonANNController.he_linear(encryptedInput, fc_kernelData, fc_biasEncoded, inputChannels, outputChannels, 0, layout);
+}
+
+void resnet20_stage(FHEONHEController &fheonHEController, ANNController &fheonANNController, int stage, vector<Ctext> &state) {
+    int dataWidth = imgCols >> stage;
+    int channels = channelValues[stage];
+    string stageName = "layer" + to_string(stage+1);
+    Ctext convData;
+    if (stage == 0) {
+        printModelLayer("layer0");
+        convData = convolution_block(fheonHEController, fheonANNController, "layer0_conv1", state[0], dataWidth, imgDepth, channels);
+        convData = fheonANNController.he_relu(convData, reluScales[0], convData->GetSlots(), reluDegree);
+        /** the first block runs on the fresh ciphertext */
+        convData = resnet_block(fheonHEController, fheonANNController, stageName + "_block1", convData, dataWidth, channels, false, 1);
+    } else {
+        /** the stride-2 block that started with the keys of the previous stage */
+        convData = block_tail(fheonHEController, fheonANNController, stageName + "_block1", state[0], state[1], dataWidth, channels, true,
+                              1 + 6*stage);
+    }
+    for (int block = 2; block <= 3; block++) {
+        convData = resnet_block(fheonHEController, fheonANNController, stageName + "_block" + to_string(block), convData, dataWidth, channels,
+                                true, 1 + 6*stage + 2*(block-1));
+    }
+    if (stage + 1 < numStages) {
+        state = downsample_head(fheonHEController, fheonANNController, "layer" + to_string(stage+2) + "_block1", convData, dataWidth,
+                                channels, channelValues[stage+1]);
+        return;
+    }
+    /** the pooling and the linear layer need one level: bootstrap only when it is not available */
+    if (convData->GetElements()[0].GetNumOfElements() - (convData->GetNoiseScaleDeg() - 1) < 3) {
+        convData = fheonHEController.bootstrap_function(convData, bootstrapIterations);
+    }
+    state = {avgpool_fc_layer_block(fheonHEController, fheonANNController, "layer_fc", convData, dataWidth, channels, channelValues[3])};
 }

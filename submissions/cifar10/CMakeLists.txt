@@ -55,9 +55,11 @@ link_directories( ${OPENMP_LIBRARIES} )
 # set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 add_link_options(-Wl,--no-as-needed)
 
-# These should take care of setting the correct LD path without manually setting LD_LIBRARY_PATH. 
-# But if a shared library or symbol lookup error occurs, you need to set the LD_LIBRARY_PATH environment 
-# to the OpenFHE lib directory: export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/path/to/OpenFHE/lib
+# Use classic RPATH (DT_RPATH) instead of the linker's default RUNPATH (DT_RUNPATH).
+# RPATH is searched before LD_LIBRARY_PATH, so these executables always find this
+# project's own OpenFHE build even if a different OpenFHE version's lib directory
+# (e.g. /usr/local/lib) is present in LD_LIBRARY_PATH.
+add_link_options(-Wl,--disable-new-dtags)
 
 if(BUILD_STATIC)
     set( CMAKE_EXE_LINKER_FLAGS "${OpenFHE_EXE_LINKER_FLAGS} -static")
@@ -68,33 +70,41 @@ else()
     link_libraries( ${OpenFHE_SHARED_LIBRARIES} )
 endif()
 
-# --------------------------------------------------------------------
-# 4.  Create FHEON library
-# --------------------------------------------------------------------
-add_library( fheonhecontroller ../fheon/FHEONHEController.cpp )
-target_include_directories( fheonhecontroller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/fheon )
-add_library( fheonanncontroller ../fheon/FHEONANNController.cpp )
-target_include_directories( fheonanncontroller PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/fheon )
+# Security level of the CKKS context (FHEON_SECURITY_LEVEL): 128 (HEStd_128_classic) for the
+# benchmark, 0 for the performance-efficient parameters (HEStd_NotSet, sparse secret) used to test
+#   cmake -DSECURITY_LEVEL=0 ...
+set( SECURITY_LEVEL 128 CACHE STRING "CKKS security level: 0 (performance efficient), 128, 192 or 256" )
+message(STATUS "FHEON security level: ${SECURITY_LEVEL}")
+add_compile_definitions( FHEON_SECURITY_LEVEL=${SECURITY_LEVEL} )
 
-#-----------------------------------------------------------------------
-# Create the FHEON Libraries
-#------------------------------------------------------------------------
+# --------------------------------------------------------------------
+# 4.  Create FHEON library (HE controller and diagonal ANN controller)
+# --------------------------------------------------------------------
+add_library( fheonhecontroller fheon/FHEONHEController.cpp )
+add_library( fheonannstandardcontroller fheon/FHEONANNStandardController.cpp )
+target_link_libraries( fheonannstandardcontroller fheonhecontroller )
+add_library( fheonanndiagonalcontroller fheon/FHEONANNDiagonalController.cpp )
+target_link_libraries( fheonanndiagonalcontroller fheonannstandardcontroller )
+
 add_library( encryption_utils src/encryption_utils.cpp )
-target_include_directories( encryption_utils PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include )
+
+# The ResNet-20 circuit (parameters, keys, levels and layers) shared by the client and the server
+add_library( resnet20_fheon src/resnet20_fheon.cpp )
+target_link_libraries( resnet20_fheon fheonanndiagonalcontroller )
+target_compile_definitions( resnet20_fheon PRIVATE WEIGHTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/weights/resnet20/" )
 
 # --------------------------------------------------------------------
 # 5.  Each *.cpp file becomes its own executable.
 #     The seven stage names are hard-wired by the benchmark contract.
 # --------------------------------------------------------------------
- 
+
 add_executable( client_key_generation src/client_key_generation.cpp )
-target_link_libraries( client_key_generation fheonanncontroller )
-target_link_libraries( client_key_generation fheonhecontroller )
+target_link_libraries( client_key_generation resnet20_fheon )
 
 add_executable( client_preprocess_input src/client_preprocess_input.cpp )
 
 add_executable( client_encode_encrypt_input src/client_encode_encrypt_input.cpp )
-target_link_libraries( client_encode_encrypt_input encryption_utils )
+target_link_libraries( client_encode_encrypt_input encryption_utils resnet20_fheon )
 
 add_executable( client_decrypt_decode src/client_decrypt_decode.cpp )
 target_link_libraries( client_decrypt_decode encryption_utils )
@@ -103,9 +113,5 @@ add_executable( client_postprocess src/client_postprocess.cpp )
 
 add_executable( server_preprocess_model src/server_preprocess_model.cpp )
 
-add_executable( server_encrypted_compute src/server_encrypted_compute.cpp src/resnet20_fheon.cpp )
-
-target_link_libraries( server_encrypted_compute encryption_utils )
-target_link_libraries( server_encrypted_compute fheonhecontroller )
-target_link_libraries( server_encrypted_compute fheonanncontroller )
-target_compile_definitions(server_encrypted_compute PRIVATE WEIGHTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/weights/resnet20/")
+add_executable( server_encrypted_compute src/server_encrypted_compute.cpp )
+target_link_libraries( server_encrypted_compute encryption_utils resnet20_fheon )

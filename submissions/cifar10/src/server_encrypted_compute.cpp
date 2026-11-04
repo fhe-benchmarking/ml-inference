@@ -30,44 +30,49 @@ int main(int argc, char *argv[]) {
 	auto size = static_cast<InstanceSize>(std::stoi(argv[1]));
 	InstanceParams prms(size);
 
-	CryptoContext<DCRTPoly> cc = read_crypto_context(prms);
-	// read_eval_keys(prms, cc);
-	PublicKey<DCRTPoly> pk = read_public_key(prms);
-	PrivateKey<DCRTPoly> sk = read_secret_key(prms);
-
+	// The context, the public key and the relinearization key of the client (no secret key: the server never decrypts)
 	std::cout << "         [server] Loading keys" << std::endl;
+	CryptoContext<DCRTPoly> context;
+	FHEONHEController fheonHEController(context);
+	fheonHEController.load_context(resnet20_he_config(prms.pubkeydir().string()), true);
+	fheonHEController.set_bootstrap_correction_factor(bootstrapCorrectionFactor);
+	context = fheonHEController.getContext();
+	ANNController fheonANNController(context);
 
-	Ctext ctxt;
-	fs::create_directories(prms.ctxtdowndir());
-	std::cout << "         [server] run encrypted CIFAR10 inference" << std::endl;
-
-	FHEONHEController fheonHEController(cc);
+	// Every input is read before the first key file: loading the keys of a stage releases the crypto contexts of
+	// OpenFHE, and a ciphertext deserialized after that would not belong to the context of the server
+	std::vector<std::vector<Ctext>> states(prms.getBatchSize(), std::vector<Ctext>(1));
 	for (size_t i = 0; i < prms.getBatchSize(); ++i) {
 		auto input_ctxt_path = prms.ctxtupdir() / ("cipher_input_" + std::to_string(i) + ".bin");
-		if (!Serial::DeserializeFromFile(input_ctxt_path, ctxt, SerType::BINARY)) {
-		throw std::runtime_error("Failed to get ciphertexts from " +
-								input_ctxt_path.string());
+		if (!Serial::DeserializeFromFile(input_ctxt_path, states[i][0], SerType::BINARY)) {
+			throw std::runtime_error("Failed to get ciphertexts from " + input_ctxt_path.string());
 		}
+	}
 
-		std::string pubkey_dir = prms.pubkeydir().string() + "/";
-		std::string sk_path = (prms.seckeydir() / "sk.bin").string();
+	// Stage by stage: the keys of a stage are loaded once and the stage runs for every image
+	std::cout << "         [server] run encrypted CIFAR10 inference" << std::endl;
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int stage = 0; stage < numStages; stage++) {
+		auto stage_start = std::chrono::high_resolution_clock::now();
+		resnet20_use_stage_keys(fheonHEController, stage);
+		auto keys_end = std::chrono::high_resolution_clock::now();
+		for (size_t i = 0; i < prms.getBatchSize(); ++i) {
+			resnet20_stage(fheonHEController, fheonANNController, stage, states[i]);
+		}
+		auto stage_end = std::chrono::high_resolution_clock::now();
+		std::cout << "         [server] Stage " << stage+1 << ": keys loaded in "
+				<< std::chrono::duration_cast<std::chrono::milliseconds>(keys_end - stage_start).count() / 1000.0 << " s, "
+				<< prms.getBatchSize() << " ciphertext(s) in "
+				<< std::chrono::duration_cast<std::chrono::milliseconds>(stage_end - keys_end).count() / 1000.0 << " s" << std::endl;
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "         [server] Execution time for " << prms.getBatchSize() << " ciphertext(s): "
+			<< std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " seconds" << std::endl;
 
-		auto start = std::chrono::high_resolution_clock::now();
-		auto ctxtResult = resnet20(fheonHEController, cc, ctxt, pubkey_dir);
-		// auto ctxtResult = resnet20(fheonHEController, cc, ctxt);
-
-		ofstream outFile;
-		outFile.open("./../results/resnet20/fhepredictions.txt", ios_base::app);
-		fheonHEController.read_inferenced_label_with_key(sk, ctxtResult, 10, outFile);
-		cout << std::endl;
-
-		auto end = std::chrono::high_resolution_clock::now();
-		auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
-		std::cout << "         [server] Execution time for ciphertext " << i
-				<< " : " << duration.count() << " seconds" << std::endl;
+	fs::create_directories(prms.ctxtdowndir());
+	for (size_t i = 0; i < prms.getBatchSize(); ++i) {
 		auto result_ctxt_path = prms.ctxtdowndir() / ("cipher_result_" + std::to_string(i) + ".bin");
-		Serial::SerializeToFile(result_ctxt_path, ctxtResult, SerType::BINARY);
-		cout << std::endl << std::endl;
+		Serial::SerializeToFile(result_ctxt_path, states[i][0], SerType::BINARY);
 	}
 	return 0;
 }

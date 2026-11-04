@@ -18,7 +18,7 @@
 
 PublicKey<DCRTPoly> read_public_key(const InstanceParams &prms) {
   PublicKey<DCRTPoly> pk;
-  if (!Serial::DeserializeFromFile(prms.pubkeydir() / "pk.bin", pk,
+  if (!Serial::DeserializeFromFile(prms.pubkeydir() / "public-key.bin", pk,
                                    SerType::BINARY)) {
     throw std::runtime_error("Failed to get public key from  " +
                              prms.pubkeydir().string());
@@ -28,7 +28,7 @@ PublicKey<DCRTPoly> read_public_key(const InstanceParams &prms) {
 
 PrivateKey<DCRTPoly> read_secret_key(const InstanceParams &prms) {
   PrivateKey<DCRTPoly> sk;
-  if (!Serial::DeserializeFromFile(prms.seckeydir() / "sk.bin", sk,
+  if (!Serial::DeserializeFromFile(prms.seckeydir() / "secret-key.bin", sk,
                                    SerType::BINARY)) {
     throw std::runtime_error("Failed to get secret key from  " +
                              prms.seckeydir().string());
@@ -38,7 +38,7 @@ PrivateKey<DCRTPoly> read_secret_key(const InstanceParams &prms) {
 
 CryptoContextT read_crypto_context(const InstanceParams &prms) {
   CryptoContextT cc;
-  if (!Serial::DeserializeFromFile(prms.pubkeydir() / "cc.bin", cc,
+  if (!Serial::DeserializeFromFile(prms.pubkeydir() / "crypto-context.bin", cc,
                                    SerType::BINARY)) {
     throw std::runtime_error("Failed to get CryptoContext from " +
                              prms.pubkeydir().string());

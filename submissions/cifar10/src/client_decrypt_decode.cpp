@@ -29,13 +29,13 @@ int main(int argc, char *argv[]) {
   InstanceParams prms(size);
 
   CryptoContext<DCRTPoly> cc;
-  if (!Serial::DeserializeFromFile(prms.pubkeydir() / "cc.bin", cc,
+  if (!Serial::DeserializeFromFile(prms.pubkeydir() / "crypto-context.bin", cc,
                                    SerType::BINARY)) {
     throw std::runtime_error("Failed to get CryptoContext from  " +
                              prms.pubkeydir().string());
   }
   PrivateKey<DCRTPoly> sk;
-  if (!Serial::DeserializeFromFile(prms.seckeydir() / "sk.bin", sk,
+  if (!Serial::DeserializeFromFile(prms.seckeydir() / "secret-key.bin", sk,
                                    SerType::BINARY)) {
     throw std::runtime_error("Failed to get secret key from  " +
                              prms.seckeydir().string());
@@ -52,7 +52,8 @@ int main(int argc, char *argv[]) {
                                ctxt_path.string());
     }
     output = input_decrypt(cc, ctxt, sk);
-    auto max_id = argmax(output.data(), 1024);
+    // the 10 logits are in the first slots: the other slots of the diagonal layout are not zero
+    auto max_id = argmax(output.data(), 10);
     out << max_id << '\n';
   }
 
