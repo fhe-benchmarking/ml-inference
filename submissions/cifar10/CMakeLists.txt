@@ -16,6 +16,8 @@ option( BUILD_STATIC "Set to ON to include static versions of the library" OFF)
 #   scripts/get_openfhe.sh installs:
 #     third_party/openfhe/lib/cmake/OpenFHE/OpenFHEConfig.cmake
 
+find_package(HEXL CONFIG QUIET)
+
 find_package(OpenFHE CONFIG REQUIRED)
 if (OpenFHE_FOUND)
     message(STATUS "FOUND PACKAGE OpenFHE")
@@ -24,6 +26,13 @@ if (OpenFHE_FOUND)
     message(STATUS "OpenFHE include files location: ${OpenFHE_INCLUDE}")
     message(STATUS "OpenFHE lib files location: ${OpenFHE_LIBDIR}")
     message(STATUS "OpenFHE Native Backend size: ${OpenFHE_NATIVE_SIZE}")
+
+    if(TARGET HEXL::hexl)
+        message(STATUS "HEXL target found.")
+    else()
+        message(STATUS "HEXL target NOT found.")
+    endif()
+
 else()
     message(FATAL_ERROR "PACKAGE OpenFHE NOT FOUND")
 endif ()
@@ -70,12 +79,12 @@ else()
     link_libraries( ${OpenFHE_SHARED_LIBRARIES} )
 endif()
 
-# Security level of the CKKS context (FHEON_SECURITY_LEVEL): 128 (HEStd_128_classic) for the
-# benchmark, 0 for the performance-efficient parameters (HEStd_NotSet, sparse secret) used to test
-#   cmake -DSECURITY_LEVEL=0 ...
-set( SECURITY_LEVEL 128 CACHE STRING "CKKS security level: 0 (performance efficient), 128, 192 or 256" )
-message(STATUS "FHEON security level: ${SECURITY_LEVEL}")
-add_compile_definitions( FHEON_SECURITY_LEVEL=${SECURITY_LEVEL} )
+if(TARGET HEXL::hexl)
+    link_libraries(HEXL::hexl)
+endif()
+
+# The security level of the CKKS context (128 bits or performance efficient) is set by performanceMode in
+# include/resnet20_fheon.h
 
 # --------------------------------------------------------------------
 # 4.  Create FHEON library (HE controller and diagonal ANN controller)
@@ -88,10 +97,9 @@ target_link_libraries( fheonanndiagonalcontroller fheonannstandardcontroller )
 
 add_library( encryption_utils src/encryption_utils.cpp )
 
-# The ResNet-20 circuit (parameters, keys, levels and layers) shared by the client and the server
+# The ResNet-20 model (architecture, stages, levels and layers) shared by the client and the server
 add_library( resnet20_fheon src/resnet20_fheon.cpp )
 target_link_libraries( resnet20_fheon fheonanndiagonalcontroller )
-target_compile_definitions( resnet20_fheon PRIVATE WEIGHTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/weights/resnet20/" )
 
 # --------------------------------------------------------------------
 # 5.  Each *.cpp file becomes its own executable.
@@ -115,3 +123,4 @@ add_executable( server_preprocess_model src/server_preprocess_model.cpp )
 
 add_executable( server_encrypted_compute src/server_encrypted_compute.cpp )
 target_link_libraries( server_encrypted_compute encryption_utils resnet20_fheon )
+target_compile_definitions( server_encrypted_compute PRIVATE WEIGHTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/weights/resnet20/" )

@@ -25,6 +25,50 @@
 using namespace std;
 namespace fs = std::filesystem;
 
+/** CKKS parameters of ResNet20Diagonal: at 128 bits OpenFHE picks the ring dimension of the modulus chain and the 2^14
+ *  slots are sparsely packed in it */
+static FHEONHEController::HEConfig resnet20_he_config(const string &keysFolder) {
+    FHEONHEController::HEConfig heinitConfig;
+    heinitConfig.ringDim = 15;
+    heinitConfig.numSlots = 14;
+    /** the parameters of the previous ResNet-20 submission: 11 levels after the bootstrapping (a ReLU of degree 119 and a
+     *  convolution need reluLevels + 2 = 10) and the level budget {3, 3}, whose shallower bootstrapping keeps log QP
+     *  within ring dimension 2^16 at 128 bits */
+    heinitConfig.mlevelBootstrap = 11;
+    heinitConfig.dcrtBits = 48;
+    heinitConfig.firstMod = 52;
+    heinitConfig.numDigits = 4;
+    heinitConfig.levelBudget = {3, 3};
+    heinitConfig.securityLevel = resnet20SecurityLevel;
+    heinitConfig.serialize = true;
+    heinitConfig.keysFolder = keysFolder;
+    /** no keys with the context: the stage key files hold exactly the bootstrapping and rotation keys of their layers
+     *  (the diagonal primitives never call EvalSum) */
+    heinitConfig.contextBootstrapKeys = false;
+    heinitConfig.contextSumKeys = false;
+    return heinitConfig;
+}
+
+/** rotations of a stage: its convolutions, the first layer (stage 1), and the stride-2 block that ends it or the pooling + linear layer */
+static vector<int> resnet20_stage_rotation_keys(ANNController &fheonANNController, int stage) {
+    int width = imgCols >> stage;
+    int channels = channelValues[stage];
+    vector<vector<int>> keys;
+    keys.push_back(fheonANNController.generate_convolution_rotation_positions(width, channels, channels, kernelWidth, 1, 1));
+    if (stage == 0) {
+        keys.push_back(fheonANNController.generate_convolution_rotation_positions(width, imgDepth, channels, kernelWidth, 1, 1));
+    }
+    if (stage + 1 < numStages) {
+        keys.push_back(fheonANNController.generate_convolution_rotation_positions(width, channels, channelValues[stage+1], kernelWidth, 1, 2,
+                                                                                 resnet20_stride2_layout(width, channels)));
+    } else {
+        FHEONLayout layout;
+        layout.inputSlots = channels * width * width;
+        keys.push_back(fheonANNController.generate_linear_rotation_positions(channelValues[3], 0, layout));
+    }
+    return serialize_rotation_keys(keys);
+}
+
 int main(int argc, char *argv[]) {
 
     if (argc < 2 || !isdigit(argv[1][0])) {
@@ -33,6 +77,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    resnet20_init_fheon();
     auto size = static_cast<InstanceSize>(stoi(argv[1]));
     InstanceParams prms(size);
     fs::create_directories(prms.pubkeydir());

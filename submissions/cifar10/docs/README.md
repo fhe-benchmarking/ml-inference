@@ -22,24 +22,24 @@ The ResNet-20 model of FHEON's `HEDiagonalSingleModels/ResNet20Diagonal`, built 
 - **Bootstrapping**: before every ReLU (19 bootstrappings per image), on the slot count of the current stage, with a common correction factor.
 - **ReLU**: Chebyshev approximation of degree 119 with **fixed scales**. The server never decrypts: every scale bounds the ReLU input of every image (the largest pre-activations of the plaintext network over the 60000 CIFAR-10 training and test images, +5%). These scales are larger than the per-image scales FHEON reads by decryption, which degree 27 cannot absorb. Plaintext simulation of the circuit on CIFAR-10 test images (exact ReLU 92.9%): degree 27 below 30%, degree 59 90.6%, degree 119 92.4%.
 - **Keys**: one key file per stage (`rotation_keys_layer{1,2,3}.bin`): the bootstrapping keys of its slot count and the rotations of its layers. The context generates no other bootstrapping or EvalSum keys.
-- **Server**: the batch runs stage by stage: the keys of a stage are loaded once and the stage runs for every image, so each key file is read once per batch.
+- **Server**: the images run one after the other; for every image the model loads the keys of each stage (its bootstrapping keys and rotations) before running that stage, so the three key files are read once per image.
 - **Implementation**: `submissions/cifar10/src/resnet20_fheon.cpp` (shared by `client_key_generation`, `client_encode_encrypt_input` and `server_encrypted_compute`).
 
 ---
 
 ## Security Level
 
-The security level is chosen when the submission is built: `cmake -DSECURITY_LEVEL=128` (the default) or `-DSECURITY_LEVEL=0` for the performance-efficient parameters. At 128 bits ResNet-20 satisfies the **128-bit security level** of the [Homomorphic Encryption Standard v1.1](https://homomorphicencryption.org/wp-content/uploads/2018/11/HomomorphicEncryptionStandardv1.1.pdf) (`HEStd_128_classic`; secret key SPARSE_ENCAPSULATED, a uniform ternary key whose sparse twin only serves the modulus raising of the bootstrapping): OpenFHE picks the ring dimension from log QP of the chain.
+The security level is set by `performanceMode` in `include/resnet20_fheon.h`: `false` (the default) for 128 bits, `true` for the performance-efficient parameters (rebuild and rerun key generation after changing it). At 128 bits ResNet-20 satisfies the **128-bit security level** of the [Homomorphic Encryption Standard v1.1](https://homomorphicencryption.org/wp-content/uploads/2018/11/HomomorphicEncryptionStandardv1.1.pdf) (`HEStd_128_classic`; secret key SPARSE_ENCAPSULATED, a uniform ternary key whose sparse twin only serves the modulus raising of the bootstrapping): OpenFHE picks the ring dimension from log QP of the chain.
 
 ### CKKS Parameters, 128 bits
-- **Ciphertexts depth**: 28 (10 levels after bootstrapping, level budget {4, 4})
-- **Scale / first modulus**: 48 / 52 bits, 5 key-switching digits
-- **log Q / log QP**: 1397 / 1697 (the standard allows log QP <= 1747 at this ring dimension)
+- **Ciphertexts depth**: 27 (11 levels after bootstrapping, level budget {3, 3})
+- **Scale / first modulus**: 48 / 52 bits, 4 key-switching digits
+- **log Q / log QP**: 1349 / 1709 (the standard allows log QP <= 1747 at this ring dimension)
 - **Ring dimension**: 65536
 - **Number of Slots**: 16384 (sparse packing in the 32768 slots of the ring)
-- **Keys**: about 47 GB (three stage files); a stage needs about 20-25 GB of memory on the server
+- **Keys**: three stage files (about 47 GB with the previous level budget {4, 4}; to be measured again with {3, 3})
 
-### Performance-efficient parameters (`-DSECURITY_LEVEL=0`)
+### Performance-efficient parameters (`performanceMode = true`)
 
 Ring dimension 32768 (16384 slots), sparse ternary secret: 19.1 GB of keys. Not a standard security level.
 
